@@ -1,3 +1,229 @@
+use bevy::{
+    app::AppExit,
+    core_pipeline::clear_color::ClearColorConfig,
+    input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
+    pbr::CascadeShadowConfigBuilder,
+    prelude::{
+        default, info, shape, AmbientLight, App, Assets, BuildChildren, Bundle, Camera3d,
+        Camera3dBundle, Color, Commands, DirectionalLight, DirectionalLightBundle, EulerRot,
+        EventReader, EventWriter, Input, KeyCode, Mesh, MouseButton, Name, PbrBundle, PluginGroup,
+        Quat, Query, Res, ResMut, SpatialBundle, StandardMaterial, Transform, Vec2, Vec3,
+    },
+    window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
+    DefaultPlugins,
+};
+use bevy_mod_picking::{DefaultPickingPlugins, PickingCameraBundle, PickingEvent, SelectionEvent};
+use smooth_bevy_cameras::{
+    controllers::orbit::{self, OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin},
+    LookTransformPlugin,
+};
+
+const WINDOW_TITLE: &str = "Bevy-jam-3";
+const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92);
+
+pub fn exit_on_window_close_system(
+    mut app_exit_events: EventWriter<AppExit>,
+    mut window_close_requested_events: EventReader<WindowCloseRequested>,
+) {
+    if !window_close_requested_events.is_empty() {
+        app_exit_events.send(AppExit);
+        window_close_requested_events.clear();
+    }
+}
+
+pub fn setup_camera(mut commands: Commands) {
+    commands
+        .spawn(Camera3dBundle {
+            camera_3d: Camera3d {
+                clear_color: ClearColorConfig::Custom(CAMERA_CLEAR_COLOR),
+                ..default()
+            },
+            ..default()
+        })
+        .insert(OrbitCameraBundle::new(
+            OrbitCameraController {
+                mouse_translate_sensitivity: Vec2::splat(1.5),
+                mouse_rotate_sensitivity: Vec2::splat(0.2),
+                ..default()
+            },
+            Vec3::new(3.0, 14.0, 32.0),
+            Vec3::new(0., 0., 0.),
+            Vec3::Y,
+        ))
+        .insert(PickingCameraBundle::default());
+}
+
+pub fn camera_input_map(
+    // egui_input_block_state: Res<EguiBlockInputState>,
+    mut events: EventWriter<orbit::ControlEvent>,
+    mut mouse_wheel_reader: EventReader<MouseWheel>,
+    mut mouse_motion_events: EventReader<MouseMotion>,
+    mouse_buttons: Res<Input<MouseButton>>,
+    _keyboard: Res<Input<KeyCode>>,
+    controllers: Query<&OrbitCameraController>,
+) {
+    // Can only control one camera at a time.
+    let controller = if let Some(controller) = controllers.iter().find(|c| c.enabled) {
+        controller
+    } else {
+        return;
+    };
+    let OrbitCameraController {
+        mouse_rotate_sensitivity,
+        mouse_translate_sensitivity,
+        mouse_wheel_zoom_sensitivity,
+        pixels_per_line,
+        ..
+    } = *controller;
+
+    let mut cursor_delta = Vec2::ZERO;
+    for event in mouse_motion_events.iter() {
+        cursor_delta += event.delta;
+    }
+
+    if mouse_buttons.pressed(MouseButton::Right) {
+        events.send(orbit::ControlEvent::Orbit(
+            mouse_rotate_sensitivity * cursor_delta,
+        ));
+    }
+
+    if mouse_buttons.pressed(MouseButton::Middle) {
+        events.send(orbit::ControlEvent::TranslateTarget(
+            mouse_translate_sensitivity * cursor_delta,
+        ));
+    }
+
+    let mut scalar = 1.0;
+    // if !egui_input_block_state.wants_pointer_input {
+    for event in mouse_wheel_reader.iter() {
+        // scale the event magnitude per pixel or per line
+        let scroll_amount = match event.unit {
+            MouseScrollUnit::Line => event.y,
+            MouseScrollUnit::Pixel => event.y / pixels_per_line,
+        };
+        scalar *= 1.0 - scroll_amount * mouse_wheel_zoom_sensitivity;
+    }
+    // }
+
+    events.send(orbit::ControlEvent::Zoom(scalar));
+}
+
+fn handle_picking_events(mut events: EventReader<PickingEvent>) {
+    for event in events.iter() {
+        match event {
+            PickingEvent::Selection(SelectionEvent::JustSelected(entity)) => {
+                info!("SelectionEvent JustSelected {:?}", entity);
+            }
+            PickingEvent::Selection(SelectionEvent::JustDeselected(entity)) => {
+                info!("SelectionEvent JustDeselected {:?}", entity);
+            }
+            PickingEvent::Hover(_) => {}
+            PickingEvent::Clicked(entity) => {
+                info!("Clicked event {:?}", entity);
+            }
+        }
+    }
+}
+
+#[derive(Bundle, Default)]
+pub struct Levelbundle {
+    name: Name,
+    spatial: SpatialBundle,
+}
+
+impl Levelbundle {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: Name::from(name),
+            ..default()
+        }
+    }
+}
+
+fn setup_scene(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // ambient light
+    commands.insert_resource(AmbientLight {
+        color: Color::ORANGE_RED,
+        brightness: 0.2,
+    });
+
+    let level_entity = commands.spawn(Levelbundle::new("Test level")).id();
+
+    let dir_light = commands
+        .spawn(DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                // Configure the projection to better fit the scene
+                shadows_enabled: true,
+                color: Color::WHITE,
+                ..default()
+            },
+            transform: Transform {
+                translation: Vec3::new(0.0, 2.0, 0.0),
+                rotation: Quat::from_euler(EulerRot::XYZ, -0.6, 0.7, 0.),
+                scale: Vec3::new(3., 3., 1.), // TODO Fix: Smaller hides some shadows
+                ..default()
+            },
+            // The default cascade config is designed to handle large scenes.
+            // As this example has a much smaller world, we can tighten the shadow
+            // bounds for better visual quality.
+            cascade_shadow_config: CascadeShadowConfigBuilder {
+                first_cascade_far_bound: 4.0,
+                maximum_distance: 10.0,
+                ..default()
+            }
+            .into(),
+            ..default()
+        })
+        .id();
+
+    let shape = commands
+        .spawn((PbrBundle {
+            mesh: meshes.add(shape::Cube::default().into()),
+            material: materials.add(StandardMaterial {
+                perceptual_roughness: 0.9,
+                metallic: 0.2,
+                base_color: Color::rgb(0.8, 0.7, 0.6),
+                ..Default::default()
+            }),
+            transform: Transform::from_xyz(2.0, 2.0, 0.0),
+            ..default()
+        },))
+        .id();
+
+    commands
+        .entity(level_entity)
+        .add_child(dir_light)
+        .add_child(shape);
+}
+
 fn main() {
-    println!("Hello, world!");
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: WINDOW_TITLE.into(),
+            resolution: (800., 600.).into(),
+            present_mode: PresentMode::AutoVsync,
+            // Tells wasm to resize the window according to the available canvas
+            fit_canvas_to_parent: true,
+            // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
+            prevent_default_event_handling: false,
+            ..default()
+        }),
+        ..default()
+    }))
+    .add_plugin(LookTransformPlugin)
+    .add_plugin(OrbitCameraPlugin::new(true))
+    .add_plugins(DefaultPickingPlugins);
+
+    app.add_startup_system(setup_camera)
+        .add_startup_system(setup_scene)
+        .add_system(camera_input_map)
+        .add_system(handle_picking_events)
+        .add_system(exit_on_window_close_system);
+
+    app.run();
 }
