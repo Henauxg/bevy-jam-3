@@ -5,14 +5,17 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::{
         default, info, shape, AmbientLight, App, Assets, BuildChildren, Bundle, Camera3d,
-        Camera3dBundle, Color, Commands, DirectionalLight, DirectionalLightBundle, EulerRot,
-        EventReader, EventWriter, Input, KeyCode, Mesh, MouseButton, Name, PbrBundle, PluginGroup,
-        Quat, Query, Res, ResMut, SpatialBundle, StandardMaterial, Transform, Vec2, Vec3,
+        Camera3dBundle, Color, Commands, Component, DirectionalLight, DirectionalLightBundle,
+        Entity, EulerRot, EventReader, EventWriter, FromWorld, Handle, Input, KeyCode, Mesh,
+        MouseButton, Name, PbrBundle, PluginGroup, Quat, Query, Res, ResMut, Resource,
+        SpatialBundle, StandardMaterial, Transform, Vec2, Vec3, World,
     },
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
 };
-use bevy_mod_picking::{DefaultPickingPlugins, PickingCameraBundle, PickingEvent, SelectionEvent};
+use bevy_mod_picking::{
+    DefaultPickingPlugins, PickableBundle, PickingCameraBundle, PickingEvent, SelectionEvent,
+};
 use smooth_bevy_cameras::{
     controllers::orbit::{self, OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin},
     LookTransformPlugin,
@@ -20,6 +23,21 @@ use smooth_bevy_cameras::{
 
 const WINDOW_TITLE: &str = "Bevy-jam-3";
 const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92);
+
+// TEST LEVEL
+const GAME_UNIT: f32 = 1.0;
+const HALF_GAME_UNIT: f32 = GAME_UNIT / 2.;
+
+const PILLAR_WIDTH: f32 = 5. * GAME_UNIT;
+const HALF_PILLAR_WIDTH: f32 = PILLAR_WIDTH / 2.0;
+const PILLAR_HEIGHT: f32 = 12. * GAME_UNIT;
+
+const STATIC_ROD_LENGTH: f32 = PILLAR_WIDTH + 2. * GAME_UNIT;
+const MOVABLE_ROD_LENGTH: f32 = PILLAR_WIDTH + 0.99 * GAME_UNIT; // So that it does not clip through
+const ROD_WIDTH: f32 = GAME_UNIT / 2.0;
+const HALF_ROD_WIDTH: f32 = ROD_WIDTH / 2.0;
+
+const CLIMBER_RADIUS: f32 = 0.2;
 
 pub fn exit_on_window_close_system(
     mut app_exit_events: EventWriter<AppExit>,
@@ -46,7 +64,7 @@ pub fn setup_camera(mut commands: Commands) {
                 mouse_rotate_sensitivity: Vec2::splat(0.2),
                 ..default()
             },
-            Vec3::new(3.0, 14.0, 32.0),
+            Vec3::new(3.0, 7.0, 16.0),
             Vec3::new(0., 0., 0.),
             Vec3::Y,
         ))
@@ -140,11 +158,134 @@ impl Levelbundle {
     }
 }
 
-fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+#[derive(Component, Clone, Debug)]
+pub struct Rod {}
+
+#[derive(Component, Clone, Debug)]
+pub struct MovableRod {}
+
+#[derive(Component, Clone, Debug)]
+pub struct Climber {}
+
+#[derive(Resource)]
+pub struct GameAssets {
+    pub climber_mesh: Handle<Mesh>,
+    pub static_rod_mesh: Handle<Mesh>,
+    pub movable_rod_mesh: Handle<Mesh>,
+    pub pillar_mat: Handle<StandardMaterial>,
+    pub static_rod_mat: Handle<StandardMaterial>,
+    pub movable_rod_mat: Handle<StandardMaterial>,
+    pub climber_mat: Handle<StandardMaterial>,
+}
+
+impl FromWorld for GameAssets {
+    fn from_world(world: &mut World) -> Self {
+        let cell = world.cell();
+
+        let mut meshes = cell
+            .get_resource_mut::<Assets<Mesh>>()
+            .expect("Failed to get Assets<Mesh>");
+        let climber_mesh = meshes.add(
+            shape::Icosphere {
+                radius: CLIMBER_RADIUS,
+                subdivisions: 5,
+            }
+            .try_into()
+            .unwrap(),
+        );
+        let static_rod_mesh =
+            meshes.add(shape::Box::new(STATIC_ROD_LENGTH, ROD_WIDTH, ROD_WIDTH).into());
+        let movable_rod_mesh =
+            meshes.add(shape::Box::new(MOVABLE_ROD_LENGTH, ROD_WIDTH, ROD_WIDTH).into());
+
+        let mut materials = cell
+            .get_resource_mut::<Assets<StandardMaterial>>()
+            .expect("Failed to get Assets<StandardMaterial>");
+
+        let pillar_mat = materials.add(StandardMaterial {
+            perceptual_roughness: 0.9,
+            metallic: 0.2,
+            base_color: Color::rgb(0.8, 0.7, 0.6),
+            ..Default::default()
+        });
+        let static_rod_mat = pillar_mat.clone();
+        let movable_rod_mat = materials.add(StandardMaterial {
+            perceptual_roughness: 0.9,
+            metallic: 0.2,
+            base_color: Color::rgb(0.8, 0.7, 0.6),
+            ..Default::default()
+        });
+        let climber_mat = materials.add(StandardMaterial {
+            perceptual_roughness: 0.9,
+            metallic: 0.2,
+            base_color: Color::rgb(0.8, 0.7, 0.6),
+            ..Default::default()
+        });
+
+        GameAssets {
+            climber_mesh,
+            static_rod_mesh,
+            movable_rod_mesh,
+            pillar_mat,
+            static_rod_mat,
+            movable_rod_mat,
+            climber_mat,
+        }
+    }
+}
+
+fn spawn_climber(
+    commands: &mut Commands,
+    assets: &Res<GameAssets>,
+    x: f32,
+    y: f32,
+    z: f32,
+) -> Entity {
+    commands
+        .spawn((PbrBundle {
+            mesh: assets.climber_mesh.clone(),
+            material: assets.climber_mat.clone(),
+            transform: Transform::from_xyz(x, y, z),
+            ..default()
+        },))
+        .insert(Climber {})
+        // .insert(PickableBundle::default())
+        .id()
+}
+
+fn spawn_movable_rod(
+    commands: &mut Commands,
+    assets: &Res<GameAssets>,
+    x: f32,
+    y: f32,
+    z: f32,
+) -> Entity {
+    commands
+        .spawn((PbrBundle {
+            mesh: assets.movable_rod_mesh.clone(),
+            material: assets.static_rod_mat.clone(),
+            transform: Transform::from_xyz(x, y, z),
+            ..default()
+        },))
+        .insert(PickableBundle::default())
+        .insert(Rod {})
+        .insert(MovableRod {})
+        .id()
+}
+
+fn spawn_static_rod(commands: &mut Commands, assets: &Res<GameAssets>, y: f32, z: f32) -> Entity {
+    commands
+        .spawn((PbrBundle {
+            mesh: assets.static_rod_mesh.clone(),
+            material: assets.static_rod_mat.clone(),
+            transform: Transform::from_xyz(0.0, y, z),
+            ..default()
+        },))
+        .insert(Rod {})
+        .id()
+}
+
+fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets: Res<GameAssets>) {
     // ambient light
     commands.insert_resource(AmbientLight {
         color: Color::ORANGE_RED,
@@ -180,24 +321,46 @@ fn setup_scene(
         })
         .id();
 
-    let shape = commands
+    let pillar = commands
         .spawn((PbrBundle {
-            mesh: meshes.add(shape::Cube::default().into()),
-            material: materials.add(StandardMaterial {
-                perceptual_roughness: 0.9,
-                metallic: 0.2,
-                base_color: Color::rgb(0.8, 0.7, 0.6),
-                ..Default::default()
-            }),
-            transform: Transform::from_xyz(2.0, 2.0, 0.0),
+            mesh: meshes.add(shape::Box::new(PILLAR_WIDTH, PILLAR_HEIGHT, PILLAR_WIDTH).into()),
+            material: assets.pillar_mat.clone(),
+            transform: Transform::from_xyz(0.0, PILLAR_HEIGHT / 2.0, 0.0),
             ..default()
         },))
         .id();
 
+    let s_x_rod_1 = spawn_static_rod(&mut commands, &assets, HALF_ROD_WIDTH, -2.0);
+    let s_x_rod_2 = spawn_static_rod(&mut commands, &assets, HALF_ROD_WIDTH + GAME_UNIT, -1.0);
+
+    let x_rod_1 = spawn_movable_rod(&mut commands, &assets, -HALF_GAME_UNIT, 2.0, 2.0);
+    let x_rod_2 = spawn_movable_rod(&mut commands, &assets, HALF_GAME_UNIT, 5.0, 1.0);
+
+    let climber_1 = spawn_climber(
+        &mut commands,
+        &assets,
+        HALF_PILLAR_WIDTH + HALF_GAME_UNIT,
+        CLIMBER_RADIUS,
+        -(HALF_PILLAR_WIDTH + HALF_GAME_UNIT),
+    );
+    let climber_2 = spawn_climber(
+        &mut commands,
+        &assets,
+        -(HALF_PILLAR_WIDTH + HALF_GAME_UNIT),
+        CLIMBER_RADIUS,
+        -(HALF_PILLAR_WIDTH + HALF_GAME_UNIT),
+    );
+
     commands
         .entity(level_entity)
         .add_child(dir_light)
-        .add_child(shape);
+        .add_child(pillar)
+        .add_child(s_x_rod_1)
+        .add_child(s_x_rod_2)
+        .add_child(x_rod_1)
+        .add_child(x_rod_2)
+        .add_child(climber_1)
+        .add_child(climber_2);
 }
 
 fn main() {
@@ -218,6 +381,8 @@ fn main() {
     .add_plugin(LookTransformPlugin)
     .add_plugin(OrbitCameraPlugin::new(true))
     .add_plugins(DefaultPickingPlugins);
+
+    app.init_resource::<GameAssets>();
 
     app.add_startup_system(setup_camera)
         .add_startup_system(setup_scene)
