@@ -3,137 +3,29 @@ use assets::{
 };
 use bevy::{
     app::AppExit,
-    core_pipeline::clear_color::ClearColorConfig,
-    input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
     pbr::CascadeShadowConfigBuilder,
     prelude::{
-        default, info, shape, AmbientLight, App, Assets, BuildChildren, Bundle, Camera3d,
-        Camera3dBundle, Color, Commands, Component, DirectionalLight, DirectionalLightBundle,
-        Entity, EulerRot, EventReader, EventWriter, Input, KeyCode, Mesh, MouseButton, Name,
-        PbrBundle, PluginGroup, Quat, Query, Res, ResMut, SpatialBundle, Transform, Vec2, Vec3,
+        default, info, shape, AmbientLight, App, Assets, BuildChildren, Bundle, Color, Commands,
+        Component, DirectionalLight, DirectionalLightBundle, Entity, EulerRot, EventReader,
+        EventWriter, Mesh, Name, PbrBundle, PluginGroup, Quat, Res, ResMut, SpatialBundle,
+        Transform, Vec3,
     },
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
 };
-use bevy_mod_picking::{
-    DefaultPickingPlugins, PickableBundle, PickingCameraBundle, PickingEvent, SelectionEvent,
-};
-use smooth_bevy_cameras::{
-    controllers::orbit::{self, OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin},
-    LookTransformPlugin,
-};
+use bevy_mod_picking::{DefaultPickingPlugins, PickableBundle, PickingEvent, SelectionEvent};
+use camera::{camera_input_map, setup_camera};
+use smooth_bevy_cameras::{controllers::orbit::OrbitCameraPlugin, LookTransformPlugin};
 
 mod assets;
+mod camera;
 
-const WINDOW_TITLE: &str = "Bevy-jam-3";
-const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92);
+pub const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92);
 
 pub const GAME_UNIT: f32 = 1.0;
 pub const HALF_GAME_UNIT: f32 = GAME_UNIT / 2.;
 
-pub fn exit_on_window_close_system(
-    mut app_exit_events: EventWriter<AppExit>,
-    mut window_close_requested_events: EventReader<WindowCloseRequested>,
-) {
-    if !window_close_requested_events.is_empty() {
-        app_exit_events.send(AppExit);
-        window_close_requested_events.clear();
-    }
-}
-
-pub fn setup_camera(mut commands: Commands) {
-    commands
-        .spawn(Camera3dBundle {
-            camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(CAMERA_CLEAR_COLOR),
-                ..default()
-            },
-            ..default()
-        })
-        .insert(OrbitCameraBundle::new(
-            OrbitCameraController {
-                mouse_translate_sensitivity: Vec2::splat(1.5),
-                mouse_rotate_sensitivity: Vec2::splat(0.2),
-                ..default()
-            },
-            Vec3::new(3.0, 7.0, 16.0),
-            Vec3::new(0., 0., 0.),
-            Vec3::Y,
-        ))
-        .insert(PickingCameraBundle::default());
-}
-
-pub fn camera_input_map(
-    // egui_input_block_state: Res<EguiBlockInputState>,
-    mut events: EventWriter<orbit::ControlEvent>,
-    mut mouse_wheel_reader: EventReader<MouseWheel>,
-    mut mouse_motion_events: EventReader<MouseMotion>,
-    mouse_buttons: Res<Input<MouseButton>>,
-    _keyboard: Res<Input<KeyCode>>,
-    controllers: Query<&OrbitCameraController>,
-) {
-    // Can only control one camera at a time.
-    let controller = if let Some(controller) = controllers.iter().find(|c| c.enabled) {
-        controller
-    } else {
-        return;
-    };
-    let OrbitCameraController {
-        mouse_rotate_sensitivity,
-        mouse_translate_sensitivity,
-        mouse_wheel_zoom_sensitivity,
-        pixels_per_line,
-        ..
-    } = *controller;
-
-    let mut cursor_delta = Vec2::ZERO;
-    for event in mouse_motion_events.iter() {
-        cursor_delta += event.delta;
-    }
-
-    if mouse_buttons.pressed(MouseButton::Right) {
-        events.send(orbit::ControlEvent::Orbit(
-            mouse_rotate_sensitivity * cursor_delta,
-        ));
-    }
-
-    if mouse_buttons.pressed(MouseButton::Middle) {
-        events.send(orbit::ControlEvent::TranslateTarget(
-            mouse_translate_sensitivity * cursor_delta,
-        ));
-    }
-
-    let mut scalar = 1.0;
-    // if !egui_input_block_state.wants_pointer_input {
-    for event in mouse_wheel_reader.iter() {
-        // scale the event magnitude per pixel or per line
-        let scroll_amount = match event.unit {
-            MouseScrollUnit::Line => event.y,
-            MouseScrollUnit::Pixel => event.y / pixels_per_line,
-        };
-        scalar *= 1.0 - scroll_amount * mouse_wheel_zoom_sensitivity;
-    }
-    // }
-
-    events.send(orbit::ControlEvent::Zoom(scalar));
-}
-
-fn handle_picking_events(mut events: EventReader<PickingEvent>) {
-    for event in events.iter() {
-        match event {
-            PickingEvent::Selection(SelectionEvent::JustSelected(entity)) => {
-                info!("SelectionEvent JustSelected {:?}", entity);
-            }
-            PickingEvent::Selection(SelectionEvent::JustDeselected(entity)) => {
-                info!("SelectionEvent JustDeselected {:?}", entity);
-            }
-            PickingEvent::Hover(_) => {}
-            PickingEvent::Clicked(entity) => {
-                info!("Clicked event {:?}", entity);
-            }
-        }
-    }
-}
+const WINDOW_TITLE: &str = "Bevy-jam-3";
 
 #[derive(Bundle, Default)]
 pub struct Levelbundle {
@@ -158,6 +50,33 @@ pub struct MovableRod {}
 
 #[derive(Component, Clone, Debug)]
 pub struct Climber {}
+
+pub fn exit_on_window_close_system(
+    mut app_exit_events: EventWriter<AppExit>,
+    mut window_close_requested_events: EventReader<WindowCloseRequested>,
+) {
+    if !window_close_requested_events.is_empty() {
+        app_exit_events.send(AppExit);
+        window_close_requested_events.clear();
+    }
+}
+
+fn handle_picking_events(mut events: EventReader<PickingEvent>) {
+    for event in events.iter() {
+        match event {
+            PickingEvent::Selection(SelectionEvent::JustSelected(entity)) => {
+                info!("SelectionEvent JustSelected {:?}", entity);
+            }
+            PickingEvent::Selection(SelectionEvent::JustDeselected(entity)) => {
+                info!("SelectionEvent JustDeselected {:?}", entity);
+            }
+            PickingEvent::Hover(_) => {}
+            PickingEvent::Clicked(entity) => {
+                info!("Clicked event {:?}", entity);
+            }
+        }
+    }
+}
 
 fn spawn_climber(
     commands: &mut Commands,
