@@ -1,0 +1,14 @@
+[package]
+name = "bevy-jam-3"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# Bevy
+bevy = "0.10.0"
+# Bevy plugins
+bevy_egui = "0.20.2"
+bevy_mod_picking = "0.12.0"
+smooth-bevy-cameras = "0.8.0"
