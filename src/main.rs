@@ -223,9 +223,17 @@ pub fn update_climbers(climbers: Query<(&Transform, &Climber, Entity)>) {
     for (transform, climber, entity) in &climbers {
         info!("Climber update: {:?} in state {:?}", entity, climber.state);
         match climber.state {
-            ClimberState::Waiting => (),
-            ClimberState::Moving => (),
-            ClimberState::Falling => (),
+            ClimberState::Waiting => {
+                // If climber doesn't have a rod beneath him anymore : falling
+                // If a rod can be reached: start moving to that rod
+            }
+            ClimberState::Moving => {
+                // If the move is finished: waiting
+            }
+            ClimberState::Falling => {
+                // If a rod is reached : waiting
+                // If the void is reached : dead
+            }
             ClimberState::Dead => (),
         }
     }
