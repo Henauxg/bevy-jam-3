@@ -6,9 +6,9 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::{
         default, info, shape, AmbientLight, App, Assets, BuildChildren, Bundle, Color, Commands,
-        Component, DirectionalLight, DirectionalLightBundle, Entity, EulerRot, EventReader,
-        EventWriter, Mesh, Name, PbrBundle, PluginGroup, Quat, Res, ResMut, SpatialBundle,
-        Transform, Vec3,
+        Component, CoreSchedule, DirectionalLight, DirectionalLightBundle, Entity, EulerRot,
+        EventReader, EventWriter, IntoSystemAppConfig, Mesh, Name, PbrBundle, PluginGroup, Quat,
+        Query, Res, ResMut, SpatialBundle, Transform, Vec3,
     },
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
@@ -49,7 +49,9 @@ pub struct Rod {}
 pub struct MovableRod {}
 
 #[derive(Component, Clone, Debug)]
-pub struct Climber {}
+pub struct Climber {
+    state: ClimberState,
+}
 
 pub fn exit_on_window_close_system(
     mut app_exit_events: EventWriter<AppExit>,
@@ -92,7 +94,9 @@ fn spawn_climber(
             transform: Transform::from_xyz(x, y, z),
             ..default()
         },))
-        .insert(Climber {})
+        .insert(Climber {
+            state: ClimberState::Waiting,
+        })
         // .insert(PickableBundle::default())
         .id()
 }
@@ -107,7 +111,7 @@ fn spawn_movable_rod(
     commands
         .spawn((PbrBundle {
             mesh: assets.movable_rod_mesh.clone(),
-            material: assets.static_rod_mat.clone(),
+            material: assets.movable_rod_mat.clone(),
             transform: Transform::from_xyz(x, y, z),
             ..default()
         },))
@@ -207,6 +211,26 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
         .add_child(climber_2);
 }
 
+#[derive(Component, Clone, Debug)]
+enum ClimberState {
+    Waiting,
+    Moving,
+    Falling,
+    Dead,
+}
+
+pub fn update_climbers(climbers: Query<(&Transform, &Climber, Entity)>) {
+    for (transform, climber, entity) in &climbers {
+        info!("Climber update: {:?} in state {:?}", entity, climber.state);
+        match climber.state {
+            ClimberState::Waiting => (),
+            ClimberState::Moving => (),
+            ClimberState::Falling => (),
+            ClimberState::Dead => (),
+        }
+    }
+}
+
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -229,9 +253,11 @@ fn main() {
     app.init_resource::<GameAssets>();
 
     app.add_startup_system(setup_camera)
-        .add_startup_system(setup_scene)
-        .add_system(camera_input_map)
+        .add_startup_system(setup_scene);
+
+    app.add_system(camera_input_map)
         .add_system(handle_picking_events)
+        .add_system(update_climbers.in_schedule(CoreSchedule::FixedUpdate))
         .add_system(exit_on_window_close_system);
 
     app.run();
