@@ -5,23 +5,35 @@ use assets::{
 };
 use bevy::{
     app::AppExit,
+    diagnostic::FrameTimeDiagnosticsPlugin,
+    input::common_conditions::input_toggle_active,
     pbr::CascadeShadowConfigBuilder,
     prelude::{
         default, info, shape, AmbientLight, App, Assets, BuildChildren, Bundle, Color, Commands,
         Component, CoreSchedule, DirectionalLight, DirectionalLightBundle, Entity, EulerRot,
-        EventReader, EventWriter, IntoSystemAppConfig, Mesh, Name, PbrBundle, PluginGroup, Quat,
-        Query, Res, ResMut, SpatialBundle, Transform, Vec3, With,
+        EventReader, EventWriter, IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name,
+        PbrBundle, PluginGroup, Quat, Query, Res, ResMut, SpatialBundle, Transform, Vec3, With,
     },
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
 };
+
 use bevy_mod_picking::{DefaultPickingPlugins, PickableBundle, PickingEvent, SelectionEvent};
 use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningPlugin};
 use camera::{camera_input_map, setup_camera};
+
+use debug::display_stats_ui;
 use smooth_bevy_cameras::{controllers::orbit::OrbitCameraPlugin, LookTransformPlugin};
+
+#[cfg(debug_assertions)]
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
+#[cfg(debug_assertions)]
+use debug::EguiInputBlockerPlugin;
 
 mod assets;
 mod camera;
+#[cfg(debug_assertions)]
+mod debug;
 
 pub const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92);
 
@@ -305,6 +317,14 @@ fn main() {
         .add_system(handle_picking_events)
         .add_system(update_climbers.in_schedule(CoreSchedule::FixedUpdate))
         .add_system(exit_on_window_close_system);
+
+    #[cfg(debug_assertions)]
+    {
+        app.add_plugin(WorldInspectorPlugin::new().run_if(input_toggle_active(true, KeyCode::F2)))
+            .add_plugin(EguiInputBlockerPlugin)
+            .add_plugin(FrameTimeDiagnosticsPlugin::default())
+            .add_system(display_stats_ui.run_if(input_toggle_active(true, KeyCode::F3)));
+    }
 
     app.run();
 }
