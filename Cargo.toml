@@ -18,6 +18,7 @@ opt-level = 3
 bevy = "0.10.0"
 # Bevy plugins
 bevy_egui = "0.20.2"
+bevy-inspector-egui = "0.18.3"
 bevy_mod_picking = "0.12.0"
 bevy_tweening = "0.7.0"
 smooth-bevy-cameras = "0.8.0"
