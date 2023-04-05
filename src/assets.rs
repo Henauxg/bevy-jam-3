@@ -10,7 +10,7 @@ pub const PILLAR_HEIGHT: f32 = 12. * GAME_UNIT;
 pub const HALF_PILLAR_HEIGHT: f32 = PILLAR_HEIGHT / 2.;
 
 pub const STATIC_ROD_LENGTH: f32 = PILLAR_WIDTH + 2. * GAME_UNIT;
-pub const MOVABLE_ROD_LENGTH: f32 = PILLAR_WIDTH + 0.99 * GAME_UNIT; // So that it does not clip through
+pub const MOVABLE_ROD_LENGTH: f32 = PILLAR_WIDTH + 1.05 * GAME_UNIT; // So that it is always visible from both sides
 pub const ROD_WIDTH: f32 = GAME_UNIT / 2.0;
 pub const HALF_ROD_WIDTH: f32 = ROD_WIDTH / 2.0;
 
