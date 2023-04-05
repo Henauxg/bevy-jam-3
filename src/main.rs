@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use assets::{
     GameAssets, CLIMBER_RADIUS, HALF_PILLAR_WIDTH, HALF_ROD_WIDTH, PILLAR_HEIGHT, PILLAR_WIDTH,
 };
@@ -8,12 +10,13 @@ use bevy::{
         default, info, shape, AmbientLight, App, Assets, BuildChildren, Bundle, Color, Commands,
         Component, CoreSchedule, DirectionalLight, DirectionalLightBundle, Entity, EulerRot,
         EventReader, EventWriter, IntoSystemAppConfig, Mesh, Name, PbrBundle, PluginGroup, Quat,
-        Query, Res, ResMut, SpatialBundle, Transform, Vec3,
+        Query, Res, ResMut, SpatialBundle, Transform, Vec3, With,
     },
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
 };
 use bevy_mod_picking::{DefaultPickingPlugins, PickableBundle, PickingEvent, SelectionEvent};
+use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningPlugin};
 use camera::{camera_input_map, setup_camera};
 use smooth_bevy_cameras::{controllers::orbit::OrbitCameraPlugin, LookTransformPlugin};
 
@@ -63,7 +66,10 @@ pub fn exit_on_window_close_system(
     }
 }
 
-fn handle_picking_events(mut events: EventReader<PickingEvent>) {
+fn handle_picking_events(
+    mut events: EventReader<PickingEvent>,
+    mut rods_animators: Query<(&Transform, &mut Animator<Transform>), With<MovableRod>>,
+) {
     for event in events.iter() {
         match event {
             PickingEvent::Selection(SelectionEvent::JustSelected(entity)) => {
@@ -74,7 +80,24 @@ fn handle_picking_events(mut events: EventReader<PickingEvent>) {
             }
             PickingEvent::Hover(_) => {}
             PickingEvent::Clicked(entity) => {
-                info!("Clicked event {:?}", entity);
+                if let Ok((rod_transform, mut rod_animator)) = rods_animators.get_mut(*entity) {
+                    if rod_animator.tweenable().progress() >= 1.0 {
+                        let tween = Tween::new(
+                            EaseFunction::QuadraticInOut,
+                            Duration::from_secs(1),
+                            TransformPositionLens {
+                                start: rod_transform.translation,
+                                end: Vec3::new(
+                                    -rod_transform.translation.x,
+                                    rod_transform.translation.y,
+                                    rod_transform.translation.z,
+                                ),
+                            },
+                        );
+                        rod_animator.set_tweenable(tween);
+                    }
+                    // TODO Could reverse it if interacting again while active
+                }
             }
         }
     }
@@ -108,16 +131,30 @@ fn spawn_movable_rod(
     y: f32,
     z: f32,
 ) -> Entity {
+    // Dummy tween
+    let tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_secs(1),
+        TransformPositionLens {
+            start: Vec3::new(x, y, z),
+            end: Vec3::new(x, y, z),
+        },
+    )
+    .with_repeat_count(0);
+
     commands
-        .spawn((PbrBundle {
-            mesh: assets.movable_rod_mesh.clone(),
-            material: assets.movable_rod_mat.clone(),
-            transform: Transform::from_xyz(x, y, z),
-            ..default()
-        },))
-        .insert(PickableBundle::default())
-        .insert(Rod {})
-        .insert(MovableRod {})
+        .spawn((
+            PbrBundle {
+                mesh: assets.movable_rod_mesh.clone(),
+                material: assets.movable_rod_mat.clone(),
+                transform: Transform::from_xyz(x, y, z),
+                ..default()
+            },
+            Rod {},
+            MovableRod {},
+            PickableBundle::default(),
+            Animator::new(tween),
+        ))
         .id()
 }
 
@@ -221,7 +258,7 @@ enum ClimberState {
 
 pub fn update_climbers(climbers: Query<(&Transform, &Climber, Entity)>) {
     for (transform, climber, entity) in &climbers {
-        info!("Climber update: {:?} in state {:?}", entity, climber.state);
+        // info!("Climber update: {:?} in state {:?}", entity, climber.state);
         match climber.state {
             ClimberState::Waiting => {
                 // If climber doesn't have a rod beneath him anymore : falling
@@ -254,6 +291,7 @@ fn main() {
         }),
         ..default()
     }))
+    .add_plugin(TweeningPlugin)
     .add_plugin(LookTransformPlugin)
     .add_plugin(OrbitCameraPlugin::new(true))
     .add_plugins(DefaultPickingPlugins);
