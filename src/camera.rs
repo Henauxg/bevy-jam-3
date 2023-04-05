@@ -9,7 +9,7 @@ use bevy::{
 use bevy_mod_picking::PickingCameraBundle;
 use smooth_bevy_cameras::controllers::orbit::{self, OrbitCameraBundle, OrbitCameraController};
 
-use crate::{assets::HALF_PILLAR_HEIGHT, CAMERA_CLEAR_COLOR};
+use crate::{assets::HALF_PILLAR_HEIGHT, debug::EguiBlockInputState, CAMERA_CLEAR_COLOR};
 
 pub fn setup_camera(mut commands: Commands) {
     commands
@@ -34,7 +34,7 @@ pub fn setup_camera(mut commands: Commands) {
 }
 
 pub fn camera_input_map(
-    // egui_input_block_state: Res<EguiBlockInputState>,
+    egui_input_block_state: Option<Res<EguiBlockInputState>>,
     mut events: EventWriter<orbit::ControlEvent>,
     mut mouse_wheel_reader: EventReader<MouseWheel>,
     mut mouse_motion_events: EventReader<MouseMotion>,
@@ -74,16 +74,20 @@ pub fn camera_input_map(
     }
 
     let mut scalar = 1.0;
-    // if !egui_input_block_state.wants_pointer_input {
-    for event in mouse_wheel_reader.iter() {
-        // scale the event magnitude per pixel or per line
-        let scroll_amount = match event.unit {
-            MouseScrollUnit::Line => event.y,
-            MouseScrollUnit::Pixel => event.y / pixels_per_line,
-        };
-        scalar *= 1.0 - scroll_amount * mouse_wheel_zoom_sensitivity;
+    let allow_zoom = match egui_input_block_state {
+        Some(egui_input_blocker) => !egui_input_blocker.wants_pointer_input,
+        None => true,
+    };
+    if allow_zoom {
+        for event in mouse_wheel_reader.iter() {
+            // scale the event magnitude per pixel or per line
+            let scroll_amount = match event.unit {
+                MouseScrollUnit::Line => event.y,
+                MouseScrollUnit::Pixel => event.y / pixels_per_line,
+            };
+            scalar *= 1.0 - scroll_amount * mouse_wheel_zoom_sensitivity;
+        }
     }
-    // }
 
     events.send(orbit::ControlEvent::Zoom(scalar));
 }
