@@ -9,8 +9,10 @@ pub const HALF_PILLAR_WIDTH: f32 = PILLAR_WIDTH / 2.0;
 pub const PILLAR_HEIGHT: f32 = 12. * GAME_UNIT;
 pub const HALF_PILLAR_HEIGHT: f32 = PILLAR_HEIGHT / 2.;
 
-pub const STATIC_ROD_LENGTH: f32 = PILLAR_WIDTH + 2. * GAME_UNIT;
+pub const STATIC_ROD_LENGTH: f32 = 1.0 * GAME_UNIT;
+pub const HALF_STATIC_ROD_LENGTH: f32 = STATIC_ROD_LENGTH / 2.;
 pub const MOVABLE_ROD_LENGTH: f32 = PILLAR_WIDTH + 1.05 * GAME_UNIT; // So that it is always visible from both sides
+pub const MOVABLE_ROD_MOVEMENT_AMPLITUDE: f32 = GAME_UNIT;
 pub const ROD_WIDTH: f32 = GAME_UNIT / 2.0;
 pub const HALF_ROD_WIDTH: f32 = ROD_WIDTH / 2.0;
 
@@ -45,7 +47,7 @@ impl FromWorld for GameAssets {
         let static_rod_mesh =
             meshes.add(shape::Box::new(STATIC_ROD_LENGTH, ROD_WIDTH, ROD_WIDTH).into());
         let movable_rod_mesh =
-            meshes.add(shape::Box::new(MOVABLE_ROD_LENGTH, ROD_WIDTH, ROD_WIDTH).into());
+            meshes.add(shape::Box::new(MOVABLE_ROD_LENGTH, ROD_WIDTH, ROD_WIDTH).into()); // TODO Depends on the pillars
 
         let mut materials = cell
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -65,9 +67,9 @@ impl FromWorld for GameAssets {
             ..Default::default()
         });
         let climber_mat = materials.add(StandardMaterial {
-            perceptual_roughness: 0.9,
+            perceptual_roughness: 0.5,
             metallic: 0.2,
-            base_color: Color::rgb(0.4, 0.7, 0.4),
+            base_color: Color::LIME_GREEN,
             ..Default::default()
         });
 
