@@ -18,11 +18,27 @@ pub struct FaceSize {
     pub h: u16,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClimberDirection {
+    Increasing,
+    Decreasing,
+}
+impl ClimberDirection {
+    pub fn change_direction(dir: ClimberDirection) -> ClimberDirection {
+        match dir {
+            ClimberDirection::Increasing => ClimberDirection::Decreasing,
+            ClimberDirection::Decreasing => ClimberDirection::Increasing,
+        }
+    }
+}
+
 pub struct ClimberData {
     pub tile_i: u16,
     pub tile_j: u16,
+    pub direction: ClimberDirection,
 }
 
+#[derive(Clone, Debug)]
 pub enum FaceDirection {
     West,
     North,
@@ -86,6 +102,7 @@ pub fn test_level_data() -> LevelData {
                     climbers: vec![ClimberData {
                         tile_i: 0,
                         tile_j: 0,
+                        direction: ClimberDirection::Increasing,
                     }],
                 },
                 FaceData {
@@ -105,6 +122,7 @@ pub fn test_level_data() -> LevelData {
                     climbers: vec![ClimberData {
                         tile_i: 0,
                         tile_j: 0,
+                        direction: ClimberDirection::Increasing,
                     }],
                 },
             ],

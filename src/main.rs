@@ -10,21 +10,27 @@ use bevy::{
     input::common_conditions::input_toggle_active,
     pbr::CascadeShadowConfigBuilder,
     prelude::{
-        default, error, info, shape, App, Assets, BuildChildren, Bundle, Color, Commands,
-        Component, CoreSchedule, DirectionalLight, DirectionalLightBundle, Entity, EulerRot,
-        EventReader, EventWriter, IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name,
-        PbrBundle, PluginGroup, Quat, Query, Res, ResMut, SpatialBundle, Transform, Vec3, With,
+        default, info, shape, App, Assets, BuildChildren, Bundle, Color, Commands, Component,
+        CoreSchedule, DirectionalLight, DirectionalLightBundle, Entity, EulerRot, EventReader,
+        EventWriter, IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name, PbrBundle,
+        PluginGroup, Quat, Query, Res, ResMut, SpatialBundle, Transform, Vec3, With,
     },
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
 };
 
 use bevy_mod_picking::{DefaultPickingPlugins, PickableBundle, PickingEvent, SelectionEvent};
-use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningPlugin};
+use bevy_tweening::{
+    lens::{TransformPositionLens, TransformScaleLens},
+    Animator, EaseFunction, Tween, TweeningPlugin,
+};
 use camera::{camera_input_map, setup_camera};
 
 use debug::display_stats_ui;
-use level::{test_level_data, FaceSize, PillarData, TileDataType};
+use level::{
+    test_level_data, ClimberData, ClimberDirection, FaceDirection, FaceSize, PillarData,
+    TileDataType,
+};
 use smooth_bevy_cameras::{controllers::orbit::OrbitCameraPlugin, LookTransformPlugin};
 
 #[cfg(debug_assertions)]
@@ -144,17 +150,22 @@ fn handle_picking_events(
 fn spawn_climber(
     commands: &mut Commands,
     assets: &Res<GameAssets>,
-    // pillar_data: &PillarData,
-    // climber_data: &ClimberData,
+    face_entity: Entity,
+    climber_data: &ClimberData,
     x: f32,
     y: f32,
     z: f32,
 ) -> Entity {
-    // let climber_pos = pillar_data.position.clone();
-    // climber_pos = match climber_data.start_position.face_index {
+    let tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_secs(1),
+        TransformPositionLens {
+            start: Vec3::new(x, y, z),
+            end: Vec3::new(x, y, z),
+        },
+    )
+    .with_repeat_count(0);
 
-    // }
-    // climber_pos.x= climber_data.start_position.face_index;
     commands
         .spawn((PbrBundle {
             mesh: assets.climber_mesh.clone(),
@@ -163,9 +174,38 @@ fn spawn_climber(
             ..default()
         },))
         .insert(Climber {
-            state: ClimberState::Waiting,
+            state: ClimberState::Waiting {
+                tile: ClimberPosition {
+                    face: face_entity,
+                    i: climber_data.tile_i,
+                    j: climber_data.tile_j,
+                },
+                // next_tile: ClimberPosition {
+                //     face: face_entity,
+                //     i: climber_data.next_i,
+                //     j: climber_data.tile_j + 1,
+                // },
+                direction: climber_data.direction,
+            },
         })
-        // .insert(PickableBundle::default())
+        .insert(Animator::new(tween))
+        .id()
+}
+
+fn spawn_face(
+    commands: &mut Commands,
+    origin: Vec3,
+    direction: FaceDirection,
+    size: FaceSize,
+    tiles: Vec<Vec<TileType>>,
+) -> Entity {
+    commands
+        .spawn(Face {
+            origin,
+            direction,
+            size,
+            tiles,
+        })
         .id()
 }
 
@@ -263,38 +303,65 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
         for face in pillar.faces {
             let factor = match face.direction {
                 level::FaceDirection::West => -1.,
-                level::FaceDirection::North => 1.,
+                level::FaceDirection::North => 1., // TODO North south
                 level::FaceDirection::East => 1.,
-                level::FaceDirection::South => -1.,
+                level::FaceDirection::South => -1., // TODO North south
             };
-            // TODO North south
             // move on x axis for west/east
             // move on z axis for north/south
+
+            let col = vec![TileType::Void; pillar.h as usize];
+            let mut face_tiles = vec![col; pillar.w as usize];
 
             for tile in face.tiles {
                 let tile_entity = match tile.kind {
                     // Relative to pillar position.
-                    TileDataType::StaticRod => spawn_static_rod(
-                        &mut commands,
-                        &assets,
-                        factor * (HALF_STATIC_ROD_LENGTH + pillar.w as f32 / 2.),
-                        tile.j as f32 * GAME_UNIT + HALF_GAME_UNIT - pillar.h as f32 / 2., // TODO + HALF_PILLAR_WIDTH ? Where is the origin of the 3d mesh ?
-                        tile.i as f32 * GAME_UNIT - pillar.w as f32 / 2. + HALF_GAME_UNIT,
-                    ),
-                    TileDataType::MovableRod => spawn_movable_rod(
-                        &mut commands,
-                        &assets,
-                        (factor * MOVABLE_ROD_MOVEMENT_AMPLITUDE) / 2.,
-                        tile.j as f32 * GAME_UNIT + HALF_GAME_UNIT - pillar.h as f32 / 2.,
-                        tile.i as f32 * GAME_UNIT - pillar.w as f32 / 2. + HALF_GAME_UNIT,
-                    ),
+                    TileDataType::StaticRod => {
+                        face_tiles[tile.i as usize][tile.j as usize] = TileType::StaticRod;
+                        spawn_static_rod(
+                            &mut commands,
+                            &assets,
+                            factor * (HALF_STATIC_ROD_LENGTH + pillar.w as f32 / 2.), // TODO North south
+                            tile.j as f32 * GAME_UNIT + HALF_GAME_UNIT - pillar.h as f32 / 2., // TODO + HALF_PILLAR_WIDTH ? Where is the origin of the 3d mesh ?
+                            tile.i as f32 * GAME_UNIT - pillar.w as f32 / 2. + HALF_GAME_UNIT,
+                        )
+                    }
+                    TileDataType::MovableRod => {
+                        face_tiles[tile.i as usize][tile.j as usize] = TileType::MovableRod;
+                        spawn_movable_rod(
+                            &mut commands,
+                            &assets,
+                            (factor * MOVABLE_ROD_MOVEMENT_AMPLITUDE) / 2., // TODO North south
+                            tile.j as f32 * GAME_UNIT + HALF_GAME_UNIT - pillar.h as f32 / 2.,
+                            tile.i as f32 * GAME_UNIT - pillar.w as f32 / 2. + HALF_GAME_UNIT,
+                        )
+                    }
                 };
                 commands.entity(pillar_entity).add_child(tile_entity);
             }
+
+            let face_entity = spawn_face(
+                &mut commands,
+                Vec3::new(
+                    pillar.x + factor * pillar.w as f32 / 2.,
+                    0.,
+                    pillar.z - pillar.w as f32 / 2., // TODO North south
+                ),
+                face.direction,
+                FaceSize {
+                    w: pillar.w,
+                    h: pillar.h,
+                },
+                face_tiles,
+            );
+            commands.entity(pillar_entity).add_child(face_entity);
+
             for climber in face.climbers {
                 let climber_entity = spawn_climber(
                     &mut commands,
                     &assets,
+                    face_entity,
+                    &climber,
                     factor * (HALF_GAME_UNIT + pillar.w as f32 / 2.),
                     climber.tile_j as f32 * GAME_UNIT
                         + HALF_GAME_UNIT
@@ -350,58 +417,188 @@ struct ClimberPosition {
     j: u16,
 }
 
-#[derive(Component, Clone, Debug)]
+#[derive(Clone, Debug)]
 enum ClimberState {
     Waiting {
-        pos: ClimberPosition,
-        next_pos: ClimberPosition,
+        tile: ClimberPosition,
+        // next_tile: ClimberPosition,
+        direction: ClimberDirection,
     },
-    Moving,
+    Moving {
+        to: ClimberPosition,
+        direction: ClimberDirection,
+    },
     Falling,
+    Saved,
     Dead,
 }
 
 #[derive(Component, Clone, Debug)]
 struct Face {
+    origin: Vec3,
+    direction: FaceDirection,
     size: FaceSize,
     tiles: Vec<Vec<TileType>>,
 }
 
 impl Face {
-    fn has_ground_on_pos(&self, pos: ClimberPosition) -> bool {
+    fn has_ground_on_tile(&self, pos: &ClimberPosition) -> bool {
         if pos.i >= self.size.w || pos.j >= self.size.h {
             return false;
         }
-        self.tiles[pos.i as usize][pos.j as usize] != TileType::Void
+        self.tiles[pos.j as usize][pos.i as usize] != TileType::Void
+    }
+
+    fn get_pos_from_tile(&self, pos: &ClimberPosition) -> Vec3 {
+        match self.direction {
+            FaceDirection::West | FaceDirection::East => Vec3::new(
+                self.origin.x,
+                self.origin.y + pos.j as f32 * GAME_UNIT,
+                self.origin.z + pos.i as f32 * GAME_UNIT,
+            ),
+            FaceDirection::North | FaceDirection::South => Vec3::new(
+                self.origin.x + pos.i as f32 * GAME_UNIT,
+                self.origin.y + pos.j as f32 * GAME_UNIT,
+                self.origin.z,
+            ),
+        }
+    }
+
+    // Can return an invalid tile
+    fn get_next_tile(
+        &self,
+        tile: &ClimberPosition,
+        direction: &ClimberDirection,
+    ) -> ClimberPosition {
+        let tile_i = match direction {
+            ClimberDirection::Increasing => tile.i + 1,
+            ClimberDirection::Decreasing => tile.i - 1,
+        };
+        ClimberPosition {
+            face: tile.face,
+            i: tile_i,
+            j: tile.j + 1,
+        }
     }
 }
 
-pub fn update_climbers(climbers: Query<(&Transform, &Climber, Entity)>, faces: Query<&Face>) {
-    for (transform, climber, entity) in &climbers {
-        match climber.state {
-            ClimberState::Waiting { pos, next_pos } => {
-                match faces.get(pos.face) {
-                    Ok(face) => {
-                        // If climber doesn't have a rod beneath him anymore : falling
-                        if !face.has_ground_on_pos(pos) {
-                            climber.state = ClimberState::Falling;
-                        }
-                        // If a rod can be reached: start moving to that rod
-                        else if face.has_ground_on_pos(next_pos) {
-                            climber.state = ClimberState::Moving;
-                        }
+fn climber_start_falling(climber: &mut Climber) -> ClimberState {
+    ClimberState::Falling
+}
+
+fn climber_start_moving(
+    translation: &Vec3,
+    next_translation: &Vec3,
+    // tile: &ClimberPosition,
+    next_tile: &ClimberPosition,
+    direction: ClimberDirection,
+    animator: &mut Animator<Transform>,
+) -> ClimberState {
+    let tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_millis(400),
+        TransformScaleLens {
+            start: Vec3::ONE,
+            end: Vec3::ZERO,
+        },
+    )
+    .then(Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_millis(1),
+        TransformPositionLens {
+            start: translation.clone(),
+            end: next_translation.clone(),
+        },
+    ))
+    .then(
+        Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_millis(400),
+            TransformScaleLens {
+                start: Vec3::ZERO,
+                end: Vec3::ONE,
+            },
+        ), // .with_completed_event(),
+    );
+    animator.set_tweenable(tween);
+
+    ClimberState::Moving {
+        to: next_tile.clone(),
+        direction,
+    }
+}
+
+fn update_climbers(
+    mut climbers: Query<(&Transform, &mut Climber, &mut Animator<Transform>)>,
+    faces: Query<&Face>,
+) {
+    for (transform, mut climber, mut animator) in climbers.iter_mut() {
+        match &climber.state {
+            ClimberState::Waiting { tile, direction } => {
+                let face = faces
+                    .get(tile.face)
+                    .expect("Climber does not appear to have a Face reference");
+                // If climber doesn't have a rod beneath him anymore : falling
+                if !face.has_ground_on_tile(&tile) {
+                    info!("Climber falling");
+                    climber.state = climber_start_falling(&mut climber);
+                } else {
+                    let next_tile = face.get_next_tile(tile, direction);
+
+                    // If a rod can be reached: start moving to that rod
+                    if face.has_ground_on_tile(&next_tile) {
+                        info!(
+                            "Climber chose a next tile : {} {} and started moving",
+                            next_tile.i, next_tile.j
+                        );
+                        let next_pos = face.get_pos_from_tile(&next_tile);
+                        climber.state = climber_start_moving(
+                            &transform.translation,
+                            &next_pos,
+                            &next_tile,
+                            *direction,
+                            &mut animator,
+                        );
                     }
-                    Err(e) => error!("Waiting climber does not appear to have a Face reference."),
                 }
             }
-            ClimberState::Moving => {
-                // If the move is finished: waiting
+            ClimberState::Moving { to, direction } => {
+                if animator.tweenable().progress() >= 1. {
+                    info!("Climber movement done");
+                    // TODO No tweening for pillars & climbers, animate according to fixed updates.
+                    let face = faces
+                        .get(to.face)
+                        .expect("Climber does not appear to have a Face reference");
+
+                    if to.j >= face.size.h - 1 {
+                        climber.state = ClimberState::Saved;
+                    } else {
+                        // if reached the max width, swap direction for now
+                        let direction = if (*direction == ClimberDirection::Increasing
+                            && to.i >= face.size.w - 1)
+                            || (*direction == ClimberDirection::Decreasing && to.i <= 0)
+                        {
+                            ClimberDirection::change_direction(*direction)
+                        } else {
+                            *direction
+                        };
+                        climber.state = ClimberState::Waiting {
+                            tile: to.clone(),
+                            direction,
+                        };
+                    }
+                }
             }
             ClimberState::Falling => {
                 // If a rod is reached : waiting
                 // If the void is reached : dead
             }
-            ClimberState::Dead => (),
+            ClimberState::Saved => {
+                // TODO Win
+            }
+            ClimberState::Dead => {
+                // TODO Lost
+            }
         }
     }
 }
