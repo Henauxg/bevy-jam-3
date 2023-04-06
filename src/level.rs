@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bevy::prelude::{AmbientLight, Color};
 
 #[derive(Clone, Copy, Debug)]
@@ -38,7 +40,7 @@ pub struct ClimberData {
     pub direction: ClimberDirection,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum FaceDirection {
     West,
     North,
@@ -46,11 +48,21 @@ pub enum FaceDirection {
     South,
 }
 
+impl FaceDirection {
+    pub fn get_opposite(dir: &FaceDirection) -> FaceDirection {
+        match dir {
+            FaceDirection::West => FaceDirection::East,
+            FaceDirection::North => FaceDirection::South,
+            FaceDirection::East => FaceDirection::West,
+            FaceDirection::South => FaceDirection::North,
+        }
+    }
+}
+
 pub struct FaceData {
     // pub h_offset: f32,
     // pub w_offset: f32,
     // pub size: FaceSize,
-    pub direction: FaceDirection,
     pub tiles: Vec<TileData>,
     pub climbers: Vec<ClimberData>,
 }
@@ -60,7 +72,7 @@ pub struct PillarData {
     pub z: f32,
     pub w: u16,
     pub h: u16,
-    pub faces: Vec<FaceData>,
+    pub faces: HashMap<FaceDirection, FaceData>,
 }
 
 pub struct LevelData {
@@ -79,48 +91,52 @@ pub fn test_level_data() -> LevelData {
             h: 10,
             x: 0.,
             z: 0.,
-            faces: vec![
-                FaceData {
-                    direction: FaceDirection::West,
-                    tiles: vec![
-                        TileData {
-                            i: 0,
-                            j: 0,
-                            kind: TileDataType::StaticRod,
-                        },
-                        TileData {
-                            i: 1,
-                            j: 1,
-                            kind: TileDataType::MovableRod,
-                        },
-                    ],
-                    climbers: vec![ClimberData {
-                        tile_i: 0,
-                        tile_j: 0,
-                        direction: ClimberDirection::Increasing,
-                    }],
-                },
-                FaceData {
-                    direction: FaceDirection::East,
-                    tiles: vec![
-                        TileData {
-                            i: 0,
-                            j: 0,
-                            kind: TileDataType::StaticRod,
-                        },
-                        TileData {
-                            i: 2,
-                            j: 2,
-                            kind: TileDataType::MovableRod,
-                        },
-                    ],
-                    climbers: vec![ClimberData {
-                        tile_i: 0,
-                        tile_j: 0,
-                        direction: ClimberDirection::Increasing,
-                    }],
-                },
-            ],
+            faces: HashMap::from([
+                (
+                    FaceDirection::West,
+                    FaceData {
+                        tiles: vec![
+                            TileData {
+                                i: 0,
+                                j: 0,
+                                kind: TileDataType::StaticRod,
+                            },
+                            TileData {
+                                i: 1,
+                                j: 1,
+                                kind: TileDataType::MovableRod,
+                            },
+                        ],
+                        climbers: vec![ClimberData {
+                            tile_i: 0,
+                            tile_j: 0,
+                            direction: ClimberDirection::Increasing,
+                        }],
+                    },
+                ),
+                (
+                    FaceDirection::East,
+                    FaceData {
+                        tiles: vec![
+                            TileData {
+                                i: 0,
+                                j: 0,
+                                kind: TileDataType::StaticRod,
+                            },
+                            TileData {
+                                i: 2,
+                                j: 2,
+                                kind: TileDataType::MovableRod,
+                            },
+                        ],
+                        climbers: vec![ClimberData {
+                            tile_i: 0,
+                            tile_j: 0,
+                            direction: ClimberDirection::Increasing,
+                        }],
+                    },
+                ),
+            ]),
         }],
         background_color: Color::TURQUOISE,
         dir_light_color: Color::ORANGE,

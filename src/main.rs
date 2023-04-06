@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use assets::{
     GameAssets, CLIMBER_RADIUS, HALF_ROD_WIDTH, HALF_STATIC_ROD_LENGTH,
@@ -66,9 +66,23 @@ impl Levelbundle {
 #[derive(Component, Clone, Debug)]
 pub struct Rod {}
 
+#[derive(Clone, Copy, Debug)]
+pub struct TilePosition {
+    i: u16,
+    j: u16,
+}
 #[derive(Component, Clone, Debug)]
 pub struct MovableRod {
     pub face: Entity,
+    pub opposite_face: Entity,
+    pub position: TilePosition,
+}
+impl MovableRod {
+    fn swap_face(&mut self) {
+        let tmp_face = self.face;
+        self.face = self.opposite_face;
+        self.opposite_face = tmp_face;
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -105,7 +119,8 @@ pub fn exit_on_window_close_system(
 
 fn handle_picking_events(
     mut events: EventReader<PickingEvent>,
-    mut rods_animators: Query<(&Transform, &mut Animator<Transform>), With<MovableRod>>,
+    mut rods_animators: Query<(&Transform, &mut Animator<Transform>, &mut MovableRod)>,
+    mut faces: Query<&mut Face>,
 ) {
     for event in events.iter() {
         match event {
@@ -117,9 +132,24 @@ fn handle_picking_events(
             }
             PickingEvent::Hover(_) => {}
             PickingEvent::Clicked(entity) => {
-                if let Ok((rod_transform, mut rod_animator)) = rods_animators.get_mut(*entity) {
-                    // TODO Immediately set void for this face
-                    // TODO set MovingRod on the other face at some point (animation duration / 2)
+                if let Ok((rod_transform, mut rod_animator, mut rod)) =
+                    rods_animators.get_mut(*entity)
+                {
+                    // TODO Add a criteria here
+
+                    // Immediately set void for this face
+                    let mut face = faces
+                        .get_mut(rod.face)
+                        .expect("Rod does not appear to have a Face reference");
+                    face.remove_tile_at(rod.position);
+
+                    let mut opposite_face = faces
+                        .get_mut(rod.opposite_face)
+                        .expect("Rod does not appear to have a Face reference");
+                    // TODO set MovingRod on the other face after a delay (animation duration / 2)
+                    opposite_face.set_tile_at(rod.position, TileType::MovableRod);
+
+                    rod.swap_face();
 
                     if rod_animator.tweenable().progress() >= 1.0 {
                         // TODO Use another cirteria
@@ -148,6 +178,8 @@ fn spawn_movable_rod(
     commands: &mut Commands,
     assets: &Res<GameAssets>,
     face: Entity,
+    opposite_face: Entity,
+    tile_pos: TilePosition,
     x: f32,
     y: f32,
     z: f32,
@@ -172,7 +204,11 @@ fn spawn_movable_rod(
                 ..default()
             },
             Rod {},
-            MovableRod { face },
+            MovableRod {
+                face,
+                position: tile_pos,
+                opposite_face,
+            },
             PickableBundle::default(),
             Animator::new(tween),
         ))
@@ -265,15 +301,25 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
         let pillar_entity = spawn_pillar(&mut commands, &mut meshes, &assets, &pillar);
         commands.entity(level_entity).add_child(pillar_entity);
 
-        for face in pillar.faces {
-            let face_entity = commands.spawn_empty().id();
+        let face_entities = HashMap::from([
+            (FaceDirection::West, commands.spawn_empty().id()),
+            (FaceDirection::North, commands.spawn_empty().id()),
+            (FaceDirection::East, commands.spawn_empty().id()),
+            (FaceDirection::South, commands.spawn_empty().id()),
+        ]);
 
-            let factor = match face.direction {
+        for (face_direction, face) in pillar.faces {
+            let &face_entity = face_entities.get(&face_direction).unwrap();
+            let opposite_face_entity = face_entities
+                .get(&FaceDirection::get_opposite(&face_direction))
+                .unwrap();
+            let factor = match face_direction {
                 level::FaceDirection::West => -1.,
                 level::FaceDirection::North => 1., // TODO North south
                 level::FaceDirection::East => 1.,
                 level::FaceDirection::South => -1., // TODO North south
             };
+
             // move on x axis for west/east
             // move on z axis for north/south
 
@@ -299,6 +345,11 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
                             &mut commands,
                             &assets,
                             face_entity,
+                            *opposite_face_entity,
+                            TilePosition {
+                                i: tile.i,
+                                j: tile.j,
+                            },
                             (factor * MOVABLE_ROD_MOVEMENT_AMPLITUDE) / 2., // TODO North south
                             tile.j as f32 * GAME_UNIT + HALF_GAME_UNIT - pillar.h as f32 / 2.,
                             tile.i as f32 * GAME_UNIT - pillar.w as f32 / 2. + HALF_GAME_UNIT,
@@ -328,7 +379,7 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
                     0.,
                     pillar.z - pillar.w as f32 / 2., // TODO North south
                 ),
-                direction: face.direction,
+                direction: face_direction,
                 size: FaceSize {
                     w: pillar.w,
                     h: pillar.h,
@@ -437,6 +488,15 @@ impl Face {
             i: tile_i,
             j: tile.j + 1,
         }
+    }
+
+    // No input checks
+    fn remove_tile_at(&mut self, pos: TilePosition) {
+        self.tiles[pos.j as usize][pos.i as usize] = TileType::Void;
+    }
+
+    fn set_tile_at(&mut self, pos: TilePosition, tile_type: TileType) {
+        self.tiles[pos.j as usize][pos.i as usize] = tile_type;
     }
 }
 
