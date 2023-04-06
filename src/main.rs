@@ -274,11 +274,12 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
                 // Configure the projection to better fit the scene
                 shadows_enabled: true,
                 color: level_data.dir_light_color,
+                illuminance: 50000.,
                 ..default()
             },
             transform: Transform {
                 translation: Vec3::new(0.0, 2.0, 0.0),
-                rotation: Quat::from_euler(EulerRot::XYZ, -0.6, 0.7, 0.),
+                rotation: Quat::from_euler(EulerRot::XYZ, -2.5, 0.5, 0.),
                 scale: Vec3::new(3., 3., 1.), // TODO Fix: Smaller hides some shadows
                 ..default()
             },
@@ -286,8 +287,35 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
             // As this example has a much smaller world, we can tighten the shadow
             // bounds for better visual quality.
             cascade_shadow_config: CascadeShadowConfigBuilder {
-                first_cascade_far_bound: 10.0,
-                maximum_distance: 50.0,
+                first_cascade_far_bound: 8.0,
+                maximum_distance: 40.0,
+                ..default()
+            }
+            .into(),
+            ..default()
+        })
+        .id();
+    commands
+        .spawn(DirectionalLightBundle {
+            directional_light: DirectionalLight {
+                // Configure the projection to better fit the scene
+                shadows_enabled: false,
+                color: Color::ALICE_BLUE,
+                illuminance: 5000.,
+                ..default()
+            },
+            transform: Transform {
+                translation: Vec3::new(0.0, 2.0, 0.0),
+                rotation: Quat::from_euler(EulerRot::XYZ, 8.5, 3.5, 0.),
+                scale: Vec3::new(3., 3., 1.), // TODO Fix: Smaller hides some shadows
+                ..default()
+            },
+            // The default cascade config is designed to handle large scenes.
+            // As this example has a much smaller world, we can tighten the shadow
+            // bounds for better visual quality.
+            cascade_shadow_config: CascadeShadowConfigBuilder {
+                first_cascade_far_bound: 8.0,
+                maximum_distance: 40.0,
                 ..default()
             }
             .into(),

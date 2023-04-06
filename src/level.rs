@@ -123,7 +123,7 @@ pub fn test_level_data() -> LevelData {
             ],
         }],
         background_color: Color::TURQUOISE,
-        dir_light_color: Color::WHITE,
+        dir_light_color: Color::ORANGE,
         ambient_light: AmbientLight {
             color: Color::ORANGE_RED,
             brightness: 0.2,
