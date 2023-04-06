@@ -286,8 +286,8 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
             // As this example has a much smaller world, we can tighten the shadow
             // bounds for better visual quality.
             cascade_shadow_config: CascadeShadowConfigBuilder {
-                first_cascade_far_bound: 4.0,
-                maximum_distance: 10.0,
+                first_cascade_far_bound: 10.0,
+                maximum_distance: 50.0,
                 ..default()
             }
             .into(),
