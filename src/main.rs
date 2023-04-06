@@ -22,7 +22,7 @@ use bevy::{
 use bevy_mod_picking::{DefaultPickingPlugins, PickableBundle, PickingEvent, SelectionEvent};
 use bevy_tweening::{
     lens::{TransformPositionLens, TransformScaleLens},
-    Animator, EaseFunction, Tween, TweeningPlugin,
+    Animator, EaseFunction, RepeatCount, Tween, TweeningPlugin,
 };
 use camera::{camera_input_map, setup_camera};
 
@@ -125,7 +125,11 @@ fn handle_picking_events(
             PickingEvent::Hover(_) => {}
             PickingEvent::Clicked(entity) => {
                 if let Ok((rod_transform, mut rod_animator)) = rods_animators.get_mut(*entity) {
+                    // TODO Immediately set void for this face
+                    // TODO set MovingRod on the other face at some point (animation duration / 2)
+
                     if rod_animator.tweenable().progress() >= 1.0 {
+                        // TODO Use another cirteria
                         let tween = Tween::new(
                             EaseFunction::QuadraticInOut,
                             Duration::from_secs(1),
@@ -158,13 +162,14 @@ fn spawn_climber(
 ) -> Entity {
     let tween = Tween::new(
         EaseFunction::QuadraticInOut,
-        Duration::from_secs(1),
-        TransformPositionLens {
-            start: Vec3::new(x, y, z),
-            end: Vec3::new(x, y, z),
+        Duration::from_millis(1200),
+        TransformScaleLens {
+            start: Vec3::new(0.9, 0.9, 0.9),
+            end: Vec3::new(1.1, 1.1, 1.1),
         },
     )
-    .with_repeat_count(0);
+    .with_repeat_count(RepeatCount::Infinite)
+    .with_repeat_strategy(bevy_tweening::RepeatStrategy::MirroredRepeat);
 
     commands
         .spawn((PbrBundle {
@@ -295,7 +300,7 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
             ..default()
         })
         .id();
-    commands
+    let dir_light_back = commands
         .spawn(DirectionalLightBundle {
             directional_light: DirectionalLight {
                 // Configure the projection to better fit the scene
@@ -323,6 +328,7 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
         })
         .id();
     commands.entity(level_entity).add_child(dir_light);
+    commands.entity(level_entity).add_child(dir_light_back);
 
     for pillar in level_data.pillars {
         let pillar_entity = spawn_pillar(&mut commands, &mut meshes, &assets, &pillar);
@@ -393,7 +399,7 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
                     factor * (HALF_GAME_UNIT + pillar.w as f32 / 2.),
                     climber.tile_j as f32 * GAME_UNIT
                         + HALF_GAME_UNIT
-                        + CLIMBER_RADIUS
+                        + CLIMBER_RADIUS * 1.2
                         + HALF_ROD_WIDTH,
                     climber.tile_i as f32 * GAME_UNIT - pillar.w as f32 / 2. + HALF_GAME_UNIT,
                 );
