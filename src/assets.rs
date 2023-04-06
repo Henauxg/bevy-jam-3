@@ -16,7 +16,7 @@ pub const MOVABLE_ROD_MOVEMENT_AMPLITUDE: f32 = GAME_UNIT;
 pub const ROD_WIDTH: f32 = GAME_UNIT / 2.0;
 pub const HALF_ROD_WIDTH: f32 = ROD_WIDTH / 2.0;
 
-pub const CLIMBER_RADIUS: f32 = 0.2;
+pub const CLIMBER_RADIUS: f32 = 0.15;
 
 #[derive(Resource)]
 pub struct GameAssets {
@@ -69,7 +69,7 @@ impl FromWorld for GameAssets {
         let climber_mat = materials.add(StandardMaterial {
             perceptual_roughness: 0.5,
             metallic: 0.2,
-            base_color: Color::LIME_GREEN,
+            emissive: Color::rgb_linear(2.0, 13.99, 8.32),
             ..Default::default()
         });
 

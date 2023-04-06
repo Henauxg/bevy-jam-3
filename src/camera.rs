@@ -1,9 +1,11 @@
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
+    core_pipeline::{
+        bloom::BloomSettings, clear_color::ClearColorConfig, tonemapping::Tonemapping,
+    },
     input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
     prelude::{
-        default, Camera3d, Camera3dBundle, Commands, EventReader, EventWriter, Input, KeyCode,
-        MouseButton, Query, Res, Vec2, Vec3,
+        default, Camera, Camera3d, Camera3dBundle, Commands, EventReader, EventWriter, Input,
+        KeyCode, MouseButton, Query, Res, Vec2, Vec3,
     },
 };
 use bevy_mod_picking::PickingCameraBundle;
@@ -13,13 +15,21 @@ use crate::{assets::HALF_PILLAR_HEIGHT, debug::EguiBlockInputState, CAMERA_CLEAR
 
 pub fn setup_camera(mut commands: Commands) {
     commands
-        .spawn(Camera3dBundle {
-            camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(CAMERA_CLEAR_COLOR),
+        .spawn((
+            Camera3dBundle {
+                camera: Camera {
+                    hdr: true, // HDR is required for bloom
+                    ..default()
+                },
+                tonemapping: Tonemapping::TonyMcMapface, // Using a tonemapper that desaturates to white is recommended
+                camera_3d: Camera3d {
+                    clear_color: ClearColorConfig::Custom(CAMERA_CLEAR_COLOR),
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        })
+            BloomSettings::default(), // Enable bloom for the camera
+        ))
         .insert(OrbitCameraBundle::new(
             OrbitCameraController {
                 mouse_translate_sensitivity: Vec2::splat(1.5),

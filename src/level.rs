@@ -93,11 +93,6 @@ pub fn test_level_data() -> LevelData {
                             j: 1,
                             kind: TileDataType::MovableRod,
                         },
-                        TileData {
-                            i: 2,
-                            j: 2,
-                            kind: TileDataType::StaticRod,
-                        },
                     ],
                     climbers: vec![ClimberData {
                         tile_i: 0,
