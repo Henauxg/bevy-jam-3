@@ -1,8 +1,8 @@
 use std::{collections::HashMap, time::Duration};
 
 use assets::{
-    GameAssets, CLIMBER_RADIUS, HALF_ROD_WIDTH, HALF_STATIC_ROD_LENGTH,
-    MOVABLE_ROD_MOVEMENT_AMPLITUDE,
+    GameAssets, CLIMBER_RADIUS, HALF_ROD_WIDTH, HALF_TILE_SIZE, HALF_VISIBLE_ROD_LENGTH,
+    MOVABLE_ROD_MOVEMENT_AMPLITUDE, TILE_SIZE, VISIBLE_ROD_LENGTH,
 };
 use bevy::{
     app::AppExit,
@@ -42,9 +42,6 @@ mod level;
 mod debug;
 
 pub const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92);
-
-pub const GAME_UNIT: f32 = 1.0;
-pub const HALF_GAME_UNIT: f32 = GAME_UNIT / 2.;
 
 const WINDOW_TITLE: &str = "Bevy-jam-3";
 
@@ -239,11 +236,20 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
 
     // Ambient light
     commands.insert_resource(level_data.ambient_light.clone());
+
+    // The default cascade config is designed to handle large scenes.
+    // As this example has a much smaller world, we can tighten the shadow
+    // bounds for better visual quality.
+    let cascade_shadow_config = CascadeShadowConfigBuilder {
+        first_cascade_far_bound: 8.0,
+        maximum_distance: 40.0,
+        ..default()
+    }
+    .build();
     // Dir light
     let dir_light = commands
         .spawn(DirectionalLightBundle {
             directional_light: DirectionalLight {
-                // Configure the projection to better fit the scene
                 shadows_enabled: true,
                 color: level_data.dir_light_color,
                 illuminance: 50000.,
@@ -252,25 +258,16 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
             transform: Transform {
                 translation: Vec3::new(0.0, 2.0, 0.0),
                 rotation: Quat::from_euler(EulerRot::XYZ, -2.5, 0.5, 0.),
-                scale: Vec3::new(3., 3., 1.), // TODO Fix: Smaller hides some shadows
+                scale: Vec3::new(3., 3., 1.),
                 ..default()
             },
-            // The default cascade config is designed to handle large scenes.
-            // As this example has a much smaller world, we can tighten the shadow
-            // bounds for better visual quality.
-            cascade_shadow_config: CascadeShadowConfigBuilder {
-                first_cascade_far_bound: 8.0,
-                maximum_distance: 40.0,
-                ..default()
-            }
-            .into(),
+            cascade_shadow_config: cascade_shadow_config.clone(),
             ..default()
         })
         .id();
     let dir_light_back = commands
         .spawn(DirectionalLightBundle {
             directional_light: DirectionalLight {
-                // Configure the projection to better fit the scene
                 shadows_enabled: false,
                 color: Color::ALICE_BLUE,
                 illuminance: 5000.,
@@ -279,18 +276,10 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
             transform: Transform {
                 translation: Vec3::new(0.0, 2.0, 0.0),
                 rotation: Quat::from_euler(EulerRot::XYZ, 8.5, 3.5, 0.),
-                scale: Vec3::new(3., 3., 1.), // TODO Fix: Smaller hides some shadows
+                scale: Vec3::new(3., 3., 1.),
                 ..default()
             },
-            // The default cascade config is designed to handle large scenes.
-            // As this example has a much smaller world, we can tighten the shadow
-            // bounds for better visual quality.
-            cascade_shadow_config: CascadeShadowConfigBuilder {
-                first_cascade_far_bound: 8.0,
-                maximum_distance: 40.0,
-                ..default()
-            }
-            .into(),
+            cascade_shadow_config: cascade_shadow_config.clone(),
             ..default()
         })
         .id();
@@ -301,6 +290,9 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
         let pillar_entity = spawn_pillar(&mut commands, &mut meshes, &assets, &pillar);
         commands.entity(level_entity).add_child(pillar_entity);
 
+        let pillar_half_width = pillar.w as f32 * TILE_SIZE / 2.;
+        let pillar_half_height = pillar.h as f32 * TILE_SIZE / 2.;
+
         let face_entities = HashMap::from([
             (FaceDirection::West, commands.spawn_empty().id()),
             (FaceDirection::North, commands.spawn_empty().id()),
@@ -310,9 +302,7 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
 
         for (face_direction, face) in pillar.faces {
             let &face_entity = face_entities.get(&face_direction).unwrap();
-            let opposite_face_entity = face_entities
-                .get(&FaceDirection::get_opposite(&face_direction))
-                .unwrap();
+            let opposite_face_entity = face_entities.get(&face_direction.get_opposite()).unwrap();
             let factor = match face_direction {
                 level::FaceDirection::West => -1.,
                 level::FaceDirection::North => 1., // TODO North south
@@ -325,7 +315,6 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
 
             let col = vec![TileType::Void; pillar.h as usize];
             let mut face_tiles = vec![col; pillar.w as usize];
-
             for tile in face.tiles {
                 let tile_entity = match tile.kind {
                     // Relative to pillar position.
@@ -334,9 +323,9 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
                         spawn_static_rod(
                             &mut commands,
                             &assets,
-                            factor * (HALF_STATIC_ROD_LENGTH + pillar.w as f32 / 2.), // TODO North south
-                            tile.j as f32 * GAME_UNIT + HALF_GAME_UNIT - pillar.h as f32 / 2., // TODO + HALF_PILLAR_WIDTH ? Where is the origin of the 3d mesh ?
-                            tile.i as f32 * GAME_UNIT - pillar.w as f32 / 2. + HALF_GAME_UNIT,
+                            factor * (HALF_VISIBLE_ROD_LENGTH + pillar_half_width), // TODO North south
+                            tile.j as f32 * TILE_SIZE + HALF_TILE_SIZE - pillar_half_height, // TODO + HALF_PILLAR_WIDTH ? Where is the origin of the 3d mesh ?
+                            tile.i as f32 * TILE_SIZE + HALF_TILE_SIZE - pillar_half_width,
                         )
                     }
                     TileDataType::MovableRod => {
@@ -351,33 +340,19 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
                                 j: tile.j,
                             },
                             (factor * MOVABLE_ROD_MOVEMENT_AMPLITUDE) / 2., // TODO North south
-                            tile.j as f32 * GAME_UNIT + HALF_GAME_UNIT - pillar.h as f32 / 2.,
-                            tile.i as f32 * GAME_UNIT - pillar.w as f32 / 2. + HALF_GAME_UNIT,
+                            tile.j as f32 * TILE_SIZE + HALF_TILE_SIZE - pillar_half_height,
+                            tile.i as f32 * TILE_SIZE + HALF_TILE_SIZE - pillar_half_width,
                         )
                     }
                 };
                 commands.entity(pillar_entity).add_child(tile_entity);
             }
 
-            // let face_entity = spawn_face(
-            //     &mut commands,
-            //     Vec3::new(
-            //         pillar.x + factor * pillar.w as f32 / 2.,
-            //         0.,
-            //         pillar.z - pillar.w as f32 / 2., // TODO North south
-            //     ),
-            //     face.direction,
-            //     FaceSize {
-            //         w: pillar.w,
-            //         h: pillar.h,
-            //     },
-            //     face_tiles,
-            // );
             commands.entity(face_entity).insert(Face {
                 origin: Vec3::new(
-                    pillar.x + factor * pillar.w as f32 / 2.,
+                    pillar.x + factor * pillar_half_width,
                     0.,
-                    pillar.z - pillar.w as f32 / 2., // TODO North south
+                    pillar.z - pillar_half_width, // TODO North south
                 ),
                 direction: face_direction,
                 size: FaceSize {
@@ -394,12 +369,12 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
                     &assets,
                     face_entity,
                     &climber,
-                    factor * (HALF_GAME_UNIT + pillar.w as f32 / 2.),
-                    climber.tile_j as f32 * GAME_UNIT
-                        + HALF_GAME_UNIT
-                        + CLIMBER_RADIUS * 1.2
-                        + HALF_ROD_WIDTH,
-                    climber.tile_i as f32 * GAME_UNIT - pillar.w as f32 / 2. + HALF_GAME_UNIT,
+                    factor * (HALF_VISIBLE_ROD_LENGTH + pillar_half_width),
+                    climber.tile_j as f32 * TILE_SIZE
+                        + HALF_TILE_SIZE
+                        + HALF_ROD_WIDTH
+                        + CLIMBER_RADIUS * 1.2,
+                    climber.tile_i as f32 * TILE_SIZE - pillar_half_width + HALF_VISIBLE_ROD_LENGTH,
                 );
                 commands.entity(level_entity).add_child(climber_entity);
             }
@@ -418,16 +393,16 @@ fn spawn_pillar(
             PbrBundle {
                 mesh: meshes.add(
                     shape::Box::new(
-                        pillar_data.w.into(),
-                        pillar_data.h.into(),
-                        pillar_data.w.into(),
+                        pillar_data.w as f32 * TILE_SIZE,
+                        pillar_data.h as f32 * TILE_SIZE,
+                        pillar_data.w as f32 * TILE_SIZE,
                     )
                     .into(),
                 ),
                 material: assets.pillar_mat.clone(),
                 transform: Transform::from_translation(Vec3::new(
                     pillar_data.x,
-                    pillar_data.h as f32 / 2.,
+                    pillar_data.h as f32 * TILE_SIZE / 2.,
                     pillar_data.z,
                 )),
                 ..default()
@@ -455,19 +430,19 @@ impl Face {
         if pos.i >= self.size.w || pos.j >= self.size.h {
             return false;
         }
-        self.tiles[pos.j as usize][pos.i as usize] != TileType::Void
+        self.tiles[pos.i as usize][pos.j as usize] != TileType::Void
     }
 
     fn get_pos_from_tile(&self, pos: &ClimberPosition) -> Vec3 {
         match self.direction {
             FaceDirection::West | FaceDirection::East => Vec3::new(
                 self.origin.x,
-                self.origin.y + pos.j as f32 * GAME_UNIT,
-                self.origin.z + pos.i as f32 * GAME_UNIT,
+                self.origin.y + pos.j as f32 * TILE_SIZE,
+                self.origin.z + pos.i as f32 * TILE_SIZE,
             ),
             FaceDirection::North | FaceDirection::South => Vec3::new(
-                self.origin.x + pos.i as f32 * GAME_UNIT,
-                self.origin.y + pos.j as f32 * GAME_UNIT,
+                self.origin.x + pos.i as f32 * TILE_SIZE,
+                self.origin.y + pos.j as f32 * TILE_SIZE,
                 self.origin.z,
             ),
         }

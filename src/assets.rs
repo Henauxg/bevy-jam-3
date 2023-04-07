@@ -2,18 +2,21 @@ use bevy::prelude::{
     shape, Assets, Color, FromWorld, Handle, Mesh, Resource, StandardMaterial, World,
 };
 
-use crate::GAME_UNIT;
+// pub const GAME_UNIT: f32 = 1.0;
+pub const TILE_SIZE: f32 = 0.5;
+pub const HALF_TILE_SIZE: f32 = TILE_SIZE / 2.;
+// pub const HALF_GAME_UNIT: f32 = GAME_UNIT / 2.;
 
-pub const PILLAR_WIDTH: f32 = 5. * GAME_UNIT;
-pub const HALF_PILLAR_WIDTH: f32 = PILLAR_WIDTH / 2.0;
-pub const PILLAR_HEIGHT: f32 = 12. * GAME_UNIT;
-pub const HALF_PILLAR_HEIGHT: f32 = PILLAR_HEIGHT / 2.;
+pub const DEPRECATED_PILLAR_WIDTH: f32 = 5. * TILE_SIZE;
+pub const DEPRECATED_HALF_PILLAR_WIDTH: f32 = DEPRECATED_PILLAR_WIDTH / 2.0;
+pub const DEPRECATED_PILLAR_HEIGHT: f32 = 12. * TILE_SIZE;
+pub const DEPRECATED_HALF_PILLAR_HEIGHT: f32 = DEPRECATED_PILLAR_HEIGHT / 2.;
 
-pub const STATIC_ROD_LENGTH: f32 = 1.0 * GAME_UNIT;
-pub const HALF_STATIC_ROD_LENGTH: f32 = STATIC_ROD_LENGTH / 2.;
-pub const MOVABLE_ROD_LENGTH: f32 = PILLAR_WIDTH + 1.05 * GAME_UNIT; // So that it is always visible from both sides
-pub const MOVABLE_ROD_MOVEMENT_AMPLITUDE: f32 = GAME_UNIT;
-pub const ROD_WIDTH: f32 = GAME_UNIT / 2.0;
+pub const VISIBLE_ROD_LENGTH: f32 = 1.0;
+pub const HALF_VISIBLE_ROD_LENGTH: f32 = VISIBLE_ROD_LENGTH / 2.;
+pub const MOVABLE_ROD_LENGTH: f32 = DEPRECATED_PILLAR_WIDTH + 1.05 * VISIBLE_ROD_LENGTH; // So that it is always visible from both sides
+pub const MOVABLE_ROD_MOVEMENT_AMPLITUDE: f32 = VISIBLE_ROD_LENGTH;
+pub const ROD_WIDTH: f32 = 0.8 * TILE_SIZE;
 pub const HALF_ROD_WIDTH: f32 = ROD_WIDTH / 2.0;
 
 pub const CLIMBER_RADIUS: f32 = 0.15;
@@ -45,7 +48,7 @@ impl FromWorld for GameAssets {
             .unwrap(),
         );
         let static_rod_mesh =
-            meshes.add(shape::Box::new(STATIC_ROD_LENGTH, ROD_WIDTH, ROD_WIDTH).into());
+            meshes.add(shape::Box::new(VISIBLE_ROD_LENGTH, ROD_WIDTH, ROD_WIDTH).into());
         let movable_rod_mesh =
             meshes.add(shape::Box::new(MOVABLE_ROD_LENGTH, ROD_WIDTH, ROD_WIDTH).into()); // TODO Depends on the pillars
 
@@ -69,7 +72,7 @@ impl FromWorld for GameAssets {
         let climber_mat = materials.add(StandardMaterial {
             perceptual_roughness: 0.5,
             metallic: 0.2,
-            emissive: Color::rgb_linear(2.0, 13.99, 8.32),
+            emissive: Color::rgb_linear(1.0, 14., 1.32),
             ..Default::default()
         });
 

@@ -11,7 +11,9 @@ use bevy::{
 use bevy_mod_picking::PickingCameraBundle;
 use smooth_bevy_cameras::controllers::orbit::{self, OrbitCameraBundle, OrbitCameraController};
 
-use crate::{assets::HALF_PILLAR_HEIGHT, debug::EguiBlockInputState, CAMERA_CLEAR_COLOR};
+use crate::{
+    assets::DEPRECATED_HALF_PILLAR_HEIGHT, debug::EguiBlockInputState, CAMERA_CLEAR_COLOR,
+};
 
 pub fn setup_camera(mut commands: Commands) {
     commands
@@ -36,8 +38,8 @@ pub fn setup_camera(mut commands: Commands) {
                 mouse_rotate_sensitivity: Vec2::splat(0.2),
                 ..default()
             },
-            Vec3::new(3.0, HALF_PILLAR_HEIGHT, -20.0),
-            Vec3::new(0., HALF_PILLAR_HEIGHT, 0.),
+            Vec3::new(3.0, DEPRECATED_HALF_PILLAR_HEIGHT, -20.0),
+            Vec3::new(0., DEPRECATED_HALF_PILLAR_HEIGHT, 0.),
             Vec3::Y,
         ))
         .insert(PickingCameraBundle::default());

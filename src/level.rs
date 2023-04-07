@@ -49,8 +49,8 @@ pub enum FaceDirection {
 }
 
 impl FaceDirection {
-    pub fn get_opposite(dir: &FaceDirection) -> FaceDirection {
-        match dir {
+    pub fn get_opposite(&self) -> FaceDirection {
+        match self {
             FaceDirection::West => FaceDirection::East,
             FaceDirection::North => FaceDirection::South,
             FaceDirection::East => FaceDirection::West,
@@ -104,6 +104,16 @@ pub fn test_level_data() -> LevelData {
                             TileData {
                                 i: 1,
                                 j: 1,
+                                kind: TileDataType::MovableRod,
+                            },
+                            TileData {
+                                i: 3,
+                                j: 3,
+                                kind: TileDataType::StaticRod,
+                            },
+                            TileData {
+                                i: 4,
+                                j: 4,
                                 kind: TileDataType::MovableRod,
                             },
                         ],
