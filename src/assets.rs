@@ -80,8 +80,12 @@ impl FromWorld for GameAssets {
         let climber_mat = materials.add(StandardMaterial {
             perceptual_roughness: 0.5,
             metallic: 0.2,
-            base_color: Color::LIME_GREEN,
-            emissive: Color::rgb_linear(1.0, 14., 1.32),
+            // base_color: Color::LIME_GREEN,
+            // emissive: Color::rgb_linear(1.0, 14., 1.32),
+            // base_color: Color::ORANGE_RED,
+            // emissive: Color::rgb_linear(14.0, 0.25, 0.),
+            base_color: Color::BLUE,
+            emissive: Color::rgb_linear(3.07, 11.22, 14.), // Light blue
             ..Default::default()
         });
 
