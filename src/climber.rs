@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::prelude::{
-    default, info, Commands, Component, Entity, PbrBundle, Query, Res, Transform, Vec3,
+    default, info, Commands, Component, Entity, Name, PbrBundle, Query, Res, Transform, Vec3,
 };
 use bevy_tweening::{
     lens::{TransformPositionLens, TransformScaleLens},
@@ -111,7 +111,7 @@ pub fn update_climbers(
                             "Climber chose a next tile : {} {} and started moving",
                             next_tile.i, next_tile.j
                         );
-                        let next_pos = face.get_pos_from_tile(&next_tile);
+                        let next_pos = face.climber_get_pos_from_tile(&next_tile);
                         climber.state = climber_start_moving(
                             &transform.translation,
                             &next_pos,
@@ -206,5 +206,6 @@ pub fn spawn_climber(
             },
         })
         .insert(Animator::new(tween))
+        .insert(Name::from("Climber"))
         .id()
 }

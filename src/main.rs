@@ -1,8 +1,8 @@
 use std::{collections::HashMap, time::Duration};
 
 use assets::{
-    GameAssets, CLIMBER_RADIUS, HALF_ROD_WIDTH, HALF_TILE_SIZE, HALF_VISIBLE_ROD_LENGTH,
-    MOVABLE_ROD_MOVEMENT_AMPLITUDE, TILE_SIZE,
+    GameAssets, CLIMBER_LEVITATE_DISTANCE, CLIMBER_RADIUS, HALF_ROD_WIDTH, HALF_TILE_SIZE,
+    HALF_VISIBLE_ROD_LENGTH, MOVABLE_ROD_MOVEMENT_AMPLITUDE, TILE_SIZE,
 };
 use bevy::{
     app::AppExit,
@@ -217,6 +217,7 @@ fn spawn_movable_rod(
             Interaction::default(),
             PickableMesh::default(),
             Animator::new(tween),
+            Name::from("Movable Rod"),
         ))
         .id()
 }
@@ -236,6 +237,7 @@ fn spawn_static_rod(
             ..default()
         },))
         .insert(Rod {})
+        .insert(Name::from("Static Rod"))
         .id()
 }
 
@@ -279,6 +281,7 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
             cascade_shadow_config: cascade_shadow_config.clone(),
             ..default()
         })
+        .insert(Name::from("Front directional light"))
         .id();
     let dir_light_back = commands
         .spawn(DirectionalLightBundle {
@@ -297,6 +300,7 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
             cascade_shadow_config: cascade_shadow_config.clone(),
             ..default()
         })
+        .insert(Name::from("Back directional light"))
         .id();
     commands.entity(level_entity).add_child(dir_light);
     commands.entity(level_entity).add_child(dir_light_back);
@@ -309,10 +313,22 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
         let pillar_half_height = pillar.h as f32 * TILE_SIZE / 2.;
 
         let face_entities = HashMap::from([
-            (FaceDirection::West, commands.spawn_empty().id()),
-            (FaceDirection::North, commands.spawn_empty().id()),
-            (FaceDirection::East, commands.spawn_empty().id()),
-            (FaceDirection::South, commands.spawn_empty().id()),
+            (
+                FaceDirection::West,
+                commands.spawn(Name::from("West face")).id(),
+            ),
+            (
+                FaceDirection::North,
+                commands.spawn(Name::from("North face")).id(),
+            ),
+            (
+                FaceDirection::East,
+                commands.spawn(Name::from("East face")).id(),
+            ),
+            (
+                FaceDirection::South,
+                commands.spawn(Name::from("South face")).id(),
+            ),
         ]);
 
         for (face_direction, face) in pillar.faces {
@@ -388,7 +404,8 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets:
                     climber.tile_j as f32 * TILE_SIZE
                         + HALF_TILE_SIZE
                         + HALF_ROD_WIDTH
-                        + CLIMBER_RADIUS * 1.2,
+                        + CLIMBER_RADIUS
+                        + CLIMBER_LEVITATE_DISTANCE,
                     climber.tile_i as f32 * TILE_SIZE - pillar_half_width + HALF_VISIBLE_ROD_LENGTH,
                 );
                 commands.entity(level_entity).add_child(climber_entity);
@@ -428,6 +445,7 @@ fn spawn_pillar(
                     tiles: vec![],
                 }],
             },
+            Name::from("Pillar"),
         ))
         .id()
 }
@@ -448,17 +466,27 @@ impl Face {
         self.tiles[pos.i as usize][pos.j as usize] != TileType::Void
     }
 
-    fn get_pos_from_tile(&self, pos: &ClimberPosition) -> Vec3 {
+    fn climber_get_pos_from_tile(&self, pos: &ClimberPosition) -> Vec3 {
+        let factor = match self.direction {
+            FaceDirection::West | FaceDirection::South => -1.,
+            FaceDirection::North | FaceDirection::East => 1.,
+        };
+        let y = self.origin.y
+            + pos.j as f32 * TILE_SIZE
+            + TILE_SIZE
+            + CLIMBER_RADIUS
+            + CLIMBER_LEVITATE_DISTANCE;
+        let horizontal_delta = pos.i as f32 * TILE_SIZE + HALF_TILE_SIZE;
         match self.direction {
             FaceDirection::West | FaceDirection::East => Vec3::new(
-                self.origin.x,
-                self.origin.y + pos.j as f32 * TILE_SIZE,
-                self.origin.z + pos.i as f32 * TILE_SIZE,
+                self.origin.x + factor * HALF_VISIBLE_ROD_LENGTH,
+                y,
+                self.origin.z + horizontal_delta,
             ),
             FaceDirection::North | FaceDirection::South => Vec3::new(
-                self.origin.x + pos.i as f32 * TILE_SIZE,
-                self.origin.y + pos.j as f32 * TILE_SIZE,
-                self.origin.z,
+                self.origin.x + horizontal_delta,
+                y,
+                self.origin.z + factor * HALF_VISIBLE_ROD_LENGTH,
             ),
         }
     }

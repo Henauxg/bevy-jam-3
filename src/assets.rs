@@ -17,6 +17,7 @@ pub const ROD_WIDTH: f32 = 0.8 * TILE_SIZE;
 pub const HALF_ROD_WIDTH: f32 = ROD_WIDTH / 2.0;
 
 pub const CLIMBER_RADIUS: f32 = 0.15;
+pub const CLIMBER_LEVITATE_DISTANCE: f32 = CLIMBER_RADIUS / 2.;
 
 #[derive(Resource)]
 pub struct GameAssets {
