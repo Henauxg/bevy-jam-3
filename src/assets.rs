@@ -2,13 +2,10 @@ use bevy::prelude::{
     shape, Assets, Color, FromWorld, Handle, Mesh, Resource, StandardMaterial, World,
 };
 
-// pub const GAME_UNIT: f32 = 1.0;
 pub const TILE_SIZE: f32 = 0.5;
 pub const HALF_TILE_SIZE: f32 = TILE_SIZE / 2.;
-// pub const HALF_GAME_UNIT: f32 = GAME_UNIT / 2.;
 
 pub const DEPRECATED_PILLAR_WIDTH: f32 = 5. * TILE_SIZE;
-pub const DEPRECATED_HALF_PILLAR_WIDTH: f32 = DEPRECATED_PILLAR_WIDTH / 2.0;
 pub const DEPRECATED_PILLAR_HEIGHT: f32 = 12. * TILE_SIZE;
 pub const DEPRECATED_HALF_PILLAR_HEIGHT: f32 = DEPRECATED_PILLAR_HEIGHT / 2.;
 
@@ -29,6 +26,7 @@ pub struct GameAssets {
     pub pillar_mat: Handle<StandardMaterial>,
     pub static_rod_mat: Handle<StandardMaterial>,
     pub movable_rod_mat: Handle<StandardMaterial>,
+    pub movable_rod_highlight_mat: Handle<StandardMaterial>,
     pub climber_mat: Handle<StandardMaterial>,
 }
 
@@ -66,12 +64,23 @@ impl FromWorld for GameAssets {
         let movable_rod_mat = materials.add(StandardMaterial {
             perceptual_roughness: 0.9,
             metallic: 0.2,
-            base_color: Color::rgb(0.4, 0.3, 0.3),
+            // base_color: Color::rgb(0.4, 0.3, 0.3),
+            base_color: Color::WHITE,
+            emissive: Color::rgb_linear(5.5, 11., 5.5),
+            ..Default::default()
+        });
+        let movable_rod_highlight_mat = materials.add(StandardMaterial {
+            perceptual_roughness: 0.9,
+            metallic: 0.2,
+            // base_color: Color::rgb(0.4, 0.3, 0.3),
+            base_color: Color::ORANGE,
+            emissive: Color::rgb_linear(6., 6., 3.),
             ..Default::default()
         });
         let climber_mat = materials.add(StandardMaterial {
             perceptual_roughness: 0.5,
             metallic: 0.2,
+            base_color: Color::LIME_GREEN,
             emissive: Color::rgb_linear(1.0, 14., 1.32),
             ..Default::default()
         });
@@ -83,6 +92,7 @@ impl FromWorld for GameAssets {
             pillar_mat,
             static_rod_mat,
             movable_rod_mat,
+            movable_rod_highlight_mat,
             climber_mat,
         }
     }
