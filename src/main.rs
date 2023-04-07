@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::Duration};
 
 use assets::{
     GameAssets, CLIMBER_RADIUS, HALF_ROD_WIDTH, HALF_TILE_SIZE, HALF_VISIBLE_ROD_LENGTH,
-    MOVABLE_ROD_MOVEMENT_AMPLITUDE, TILE_SIZE, VISIBLE_ROD_LENGTH,
+    MOVABLE_ROD_MOVEMENT_AMPLITUDE, TILE_SIZE,
 };
 use bevy::{
     app::AppExit,
@@ -13,13 +13,17 @@ use bevy::{
         default, info, shape, App, Assets, BuildChildren, Bundle, Color, Commands, Component,
         CoreSchedule, DirectionalLight, DirectionalLightBundle, Entity, EulerRot, EventReader,
         EventWriter, IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name, PbrBundle,
-        PluginGroup, Quat, Query, Res, ResMut, SpatialBundle, Transform, Vec3, With,
+        PluginGroup, Quat, Query, Res, ResMut, SpatialBundle, Transform, Vec3,
     },
+    ui::{FocusPolicy, Interaction},
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
 };
 
-use bevy_mod_picking::{DefaultPickingPlugins, PickableBundle, PickingEvent, SelectionEvent};
+use bevy_mod_picking::{
+    highlight::Highlight, DefaultHighlighting, DefaultPickingPlugins, Hover, PickableMesh,
+    PickingEvent, SelectionEvent,
+};
 use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningPlugin};
 use camera::{camera_input_map, setup_camera};
 
@@ -206,7 +210,12 @@ fn spawn_movable_rod(
                 position: tile_pos,
                 opposite_face,
             },
-            PickableBundle::default(),
+            // PickableBundle::default()
+            Highlight::default(),
+            Hover::default(),
+            FocusPolicy::Block,
+            Interaction::default(),
+            PickableMesh::default(),
             Animator::new(tween),
         ))
         .id()
@@ -233,6 +242,12 @@ fn spawn_static_rod(
 fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets: Res<GameAssets>) {
     let level_data = test_level_data();
     let level_entity = commands.spawn(Levelbundle::new(&level_data.name)).id();
+
+    commands.insert_resource(DefaultHighlighting {
+        hovered: assets.movable_rod_highlight_mat.clone(),
+        pressed: assets.movable_rod_mat.clone(),
+        selected: assets.climber_mat.clone(),
+    });
 
     // Ambient light
     commands.insert_resource(level_data.ambient_light.clone());
