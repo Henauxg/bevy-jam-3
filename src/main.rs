@@ -53,6 +53,20 @@ mod level;
 #[cfg(debug_assertions)]
 mod debug;
 
+// THEMES
+
+// Pillar material 193, 109, 0, 255
+// Front dir light WHITE
+
+// Autumn
+// Ambient 255, 68, 0, 255  Brightness 0.2
+// Clear color 109, 241, 255, 255
+// Grass MC 149, 45, 0, 255
+// Grass BC 34, 6, 6, 255
+// Ground 79, 30, 0, 255
+
+// Fushia
+
 pub const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92); // 0, 0, 28, 255
 
 const WINDOW_TITLE: &str = "Bevy-jam-3";
