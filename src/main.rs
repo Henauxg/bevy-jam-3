@@ -53,7 +53,7 @@ mod level;
 #[cfg(debug_assertions)]
 mod debug;
 
-pub const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92);
+pub const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92); // 0, 0, 28, 255
 
 const WINDOW_TITLE: &str = "Bevy-jam-3";
 
@@ -549,11 +549,11 @@ impl Face {
 
     // No input checks
     fn remove_tile_at(&mut self, pos: TilePosition) {
-        self.tiles[pos.j as usize][pos.i as usize] = TileType::Void;
+        self.tiles[pos.i as usize][pos.j as usize] = TileType::Void;
     }
 
     fn set_tile_at(&mut self, pos: TilePosition, tile_type: TileType) {
-        self.tiles[pos.j as usize][pos.i as usize] = tile_type;
+        self.tiles[pos.i as usize][pos.j as usize] = tile_type;
     }
 }
 
@@ -574,8 +574,8 @@ fn custom_grass_mesh() -> Mesh {
 
 fn setup_grass(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.insert_resource(GrassConfiguration {
-        main_color: Color::rgb(0.2, 0.5, 0.0),
-        bottom_color: Color::rgb(0.1, 0.1, 0.0),
+        main_color: Color::rgb(0.2, 0.5, 0.0),   //205, 38, 255, 255
+        bottom_color: Color::rgb(0.1, 0.1, 0.0), //  25, 0, 12, 255
         wind: Vec2::new(0.6, 0.6),
     });
 
