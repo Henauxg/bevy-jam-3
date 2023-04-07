@@ -89,10 +89,10 @@ fn climber_start_moving(
 }
 
 pub fn update_climbers(
-    mut climbers: Query<(&Transform, &mut Climber, &mut Animator<Transform>)>,
+    mut climbers: Query<(&mut Transform, &mut Climber, &mut Animator<Transform>)>,
     faces: Query<&Face>,
 ) {
-    for (transform, mut climber, mut animator) in climbers.iter_mut() {
+    for (mut transform, mut climber, mut animator) in climbers.iter_mut() {
         match &climber.state {
             ClimberState::Waiting { tile, direction } => {
                 let face = faces
@@ -138,7 +138,7 @@ pub fn update_climbers(
                             && to.i >= face.size.w - 1)
                             || (*direction == ClimberDirection::Decreasing && to.i <= 0)
                         {
-                            ClimberDirection::change_direction(*direction)
+                            direction.get_opposite()
                         } else {
                             *direction
                         };
@@ -152,6 +152,10 @@ pub fn update_climbers(
             ClimberState::Falling => {
                 // If a rod is reached : waiting
                 // If the void is reached : dead
+                transform.translation.y -= 0.05;
+                if transform.translation.y <= 0.0 {
+                    climber.state = ClimberState::Dead;
+                }
             }
             ClimberState::Saved => {
                 // TODO Win

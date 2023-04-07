@@ -26,8 +26,8 @@ pub enum ClimberDirection {
     Decreasing,
 }
 impl ClimberDirection {
-    pub fn change_direction(dir: ClimberDirection) -> ClimberDirection {
-        match dir {
+    pub fn get_opposite(&self) -> ClimberDirection {
+        match self {
             ClimberDirection::Increasing => ClimberDirection::Decreasing,
             ClimberDirection::Decreasing => ClimberDirection::Increasing,
         }
