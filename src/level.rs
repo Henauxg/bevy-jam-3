@@ -116,6 +116,11 @@ pub fn test_level_data() -> LevelData {
                                 j: 4,
                                 kind: TileDataType::MovableRod,
                             },
+                            TileData {
+                                i: 4,
+                                j: 6,
+                                kind: TileDataType::MovableRod,
+                            },
                         ],
                         climbers: vec![ClimberData {
                             tile_i: 0,
@@ -136,6 +141,11 @@ pub fn test_level_data() -> LevelData {
                             TileData {
                                 i: 2,
                                 j: 2,
+                                kind: TileDataType::MovableRod,
+                            },
+                            TileData {
+                                i: 3,
+                                j: 5,
                                 kind: TileDataType::MovableRod,
                             },
                         ],
