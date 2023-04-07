@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, f32::consts::PI, time::Duration};
 
 use assets::{
     GameAssets, CLIMBER_LEVITATE_DISTANCE, CLIMBER_RADIUS, HALF_ROD_WIDTH, HALF_TILE_SIZE,
@@ -13,8 +13,10 @@ use bevy::{
         default, info, shape, App, Assets, BuildChildren, Bundle, Color, Commands, Component,
         CoreSchedule, DirectionalLight, DirectionalLightBundle, Entity, EulerRot, EventReader,
         EventWriter, IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name, PbrBundle,
-        PluginGroup, Quat, Query, Res, ResMut, SpatialBundle, Transform, Vec3,
+        PluginGroup, Quat, Query, Res, ResMut, SpatialBundle, StandardMaterial, Transform, Vec2,
+        Vec3,
     },
+    render::{mesh::Indices, render_resource::PrimitiveTopology},
     ui::{FocusPolicy, Interaction},
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
@@ -30,12 +32,18 @@ use camera::{camera_input_map, setup_camera};
 use climber::{spawn_climber, update_climbers, ClimberPosition};
 use debug::display_stats_ui;
 use level::{test_level_data, ClimberDirection, FaceDirection, FaceSize, PillarData, TileDataType};
+use rand::{distributions::Uniform, prelude::Distribution};
 use smooth_bevy_cameras::{controllers::orbit::OrbitCameraPlugin, LookTransformPlugin};
 
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 #[cfg(debug_assertions)]
 use debug::EguiInputBlockerPlugin;
+use warbler_grass::{
+    prelude::{Grass, WarblersExplicitBundle},
+    warblers_plugin::WarblersPlugin,
+    GrassConfiguration,
+};
 
 mod assets;
 mod camera;
@@ -241,7 +249,38 @@ fn spawn_static_rod(
         .id()
 }
 
-fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, assets: Res<GameAssets>) {
+fn setup_scene(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    assets: Res<GameAssets>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // sky
+    // commands.spawn(PbrBundle {
+    //     mesh: meshes.add(Mesh::from(shape::Box::default())),
+    //     material: materials.add(StandardMaterial {
+    //         base_color: Color::hex("888888").unwrap(),
+    //         unlit: true,
+    //         cull_mode: None,
+    //         ..default()
+    //     }),
+    //     transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
+    //     ..default()
+    // });
+
+    // Ground
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Circle::new(20.))),
+        material: materials.add(StandardMaterial {
+            base_color: Color::DARK_GREEN,
+            // unlit: true,
+            // cull_mode: None,
+            ..default()
+        }),
+        transform: Transform::from_rotation(Quat::from_axis_angle(Vec3::X, -1. * PI / 2.)),
+        ..default()
+    });
+
     let level_data = test_level_data();
     let level_entity = commands.spawn(Levelbundle::new(&level_data.name)).id();
 
@@ -518,6 +557,58 @@ impl Face {
     }
 }
 
+fn custom_grass_mesh() -> Mesh {
+    let mut grass_mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    grass_mesh.insert_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        vec![
+            [0., 0., 0.],
+            [0.25, 0., 0.],
+            [0.125, 0., 0.2],
+            [0.125, 1.0, 0.075],
+        ],
+    );
+    grass_mesh.set_indices(Some(Indices::U32(vec![1, 0, 3, 2, 1, 3, 0, 2, 3])));
+    grass_mesh
+}
+
+fn setup_grass(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+    commands.insert_resource(GrassConfiguration {
+        main_color: Color::rgb(0.2, 0.5, 0.0),
+        bottom_color: Color::rgb(0.1, 0.1, 0.0),
+        wind: Vec2::new(0.6, 0.6),
+    });
+
+    let grass_mesh = meshes.add(custom_grass_mesh());
+
+    let base_count = 400;
+    let per_radius_count = 75;
+    let noise_range = Uniform::from(0.9..1.1);
+    let mut rng = rand::thread_rng();
+
+    let mut positions: Vec<Vec3> = Vec::new();
+    for radius in 3..45 {
+        let grass_blades_count = base_count + radius * per_radius_count;
+        for i in 0..grass_blades_count {
+            let f = i as f32 / grass_blades_count as f32;
+            let dist = radius as f32 / 2.0;
+            let noise: f32 = noise_range.sample(&mut rng);
+            let x = (f * std::f32::consts::PI * 2.).cos() * dist * noise;
+            let y = (f * std::f32::consts::PI * 2.).sin() * dist * noise;
+            positions.push(Vec3::new(x, 0., y))
+        }
+    }
+
+    commands.spawn(WarblersExplicitBundle {
+        grass_mesh,
+        grass: Grass {
+            positions,
+            height: 0.3,
+        },
+        ..default()
+    });
+}
+
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -536,12 +627,14 @@ fn main() {
     .add_plugin(TweeningPlugin)
     .add_plugin(LookTransformPlugin)
     .add_plugin(OrbitCameraPlugin::new(true))
-    .add_plugins(DefaultPickingPlugins);
+    .add_plugins(DefaultPickingPlugins)
+    .add_plugin(WarblersPlugin);
 
     app.init_resource::<GameAssets>();
 
     app.add_startup_system(setup_camera)
-        .add_startup_system(setup_scene);
+        .add_startup_system(setup_scene)
+        .add_startup_system(setup_grass);
 
     app.add_system(camera_input_map)
         .add_system(handle_picking_events)

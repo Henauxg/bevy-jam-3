@@ -30,7 +30,16 @@ pub fn setup_camera(mut commands: Commands) {
                 },
                 ..default()
             },
-            BloomSettings::default(), // Enable bloom for the camera
+            // Enable bloom for the camera
+            BloomSettings::default(),
+            // FogSettings { // not compatible with grass plugin
+            //     color: Color::rgba(0.05, 0.05, 0.05, 1.0),
+            //     falloff: FogFalloff::Linear {
+            //         start: 5.0,
+            //         end: 20.0,
+            //     },
+            //     ..default()
+            // },
         ))
         .insert(OrbitCameraBundle::new(
             OrbitCameraController {
