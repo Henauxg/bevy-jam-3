@@ -22,5 +22,5 @@ bevy-inspector-egui = "0.18.3"
 bevy_mod_picking = "0.12.0"
 bevy_tweening = "0.7.0"
 smooth-bevy-cameras = "0.8.0"
-
-
+warbler_grass = "0.3.2"
+rand = "0.8.5"
