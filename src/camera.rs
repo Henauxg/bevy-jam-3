@@ -23,7 +23,7 @@ pub fn setup_camera(mut commands: Commands) {
                     hdr: true, // HDR is required for bloom
                     ..default()
                 },
-                tonemapping: Tonemapping::TonyMcMapface, // Using a tonemapper that desaturates to white is recommended
+                tonemapping: Tonemapping::ReinhardLuminance,
                 camera_3d: Camera3d {
                     clear_color: ClearColorConfig::Custom(CAMERA_CLEAR_COLOR),
                     ..default()
