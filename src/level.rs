@@ -20,24 +20,24 @@ pub struct FaceSize {
     pub h: u16,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ClimberDirection {
-    Increasing,
-    Decreasing,
-}
-impl ClimberDirection {
-    pub fn get_opposite(&self) -> ClimberDirection {
-        match self {
-            ClimberDirection::Increasing => ClimberDirection::Decreasing,
-            ClimberDirection::Decreasing => ClimberDirection::Increasing,
-        }
-    }
-}
+// #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+// pub enum ClimberDirection {
+//     Increasing,
+//     Decreasing,
+// }
+// impl ClimberDirection {
+//     pub fn get_opposite(&self) -> ClimberDirection {
+//         match self {
+//             ClimberDirection::Increasing => ClimberDirection::Decreasing,
+//             ClimberDirection::Decreasing => ClimberDirection::Increasing,
+//         }
+//     }
+// }
 
 pub struct ClimberData {
     pub tile_i: u16,
     pub tile_j: u16,
-    pub direction: ClimberDirection,
+    // pub direction: ClimberDirection,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -125,7 +125,7 @@ pub fn test_level_data() -> LevelData {
                         climbers: vec![ClimberData {
                             tile_i: 0,
                             tile_j: 0,
-                            direction: ClimberDirection::Increasing,
+                            // direction: ClimberDirection::Increasing,
                         }],
                     },
                 ),
@@ -152,7 +152,7 @@ pub fn test_level_data() -> LevelData {
                         climbers: vec![ClimberData {
                             tile_i: 0,
                             tile_j: 0,
-                            direction: ClimberDirection::Increasing,
+                            // direction: ClimberDirection::Increasing,
                         }],
                     },
                 ),

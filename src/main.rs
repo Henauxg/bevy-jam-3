@@ -31,7 +31,7 @@ use camera::{camera_input_map, setup_camera};
 
 use climber::{spawn_climber, update_climbers, ClimberPosition};
 use debug::display_stats_ui;
-use level::{test_level_data, ClimberDirection, FaceDirection, FaceSize, PillarData, TileDataType};
+use level::{test_level_data, FaceDirection, FaceSize, PillarData, TileDataType};
 use rand::{distributions::Uniform, prelude::Distribution};
 use smooth_bevy_cameras::{controllers::orbit::OrbitCameraPlugin, LookTransformPlugin};
 
@@ -512,11 +512,15 @@ pub struct Face {
 }
 
 impl Face {
-    fn has_ground_on_tile(&self, pos: &ClimberPosition) -> bool {
-        if pos.i >= self.size.w || pos.j >= self.size.h {
+    fn is_valid(&self, i: u16, j: u16) -> bool {
+        i < self.size.w && j < self.size.h
+    }
+
+    fn has_ground_on_tile(&self, i: u16, j: u16) -> bool {
+        if !self.is_valid(i, j) {
             return false;
         }
-        self.tiles[pos.i as usize][pos.j as usize] != TileType::Void
+        self.tiles[i as usize][j as usize] != TileType::Void
     }
 
     fn climber_get_pos_from_tile(&self, pos: &ClimberPosition) -> Vec3 {
@@ -544,21 +548,31 @@ impl Face {
         }
     }
 
-    // Can return an invalid tile
-    fn get_next_tile(
+    fn get_next_tile_with_ground(
         &self,
         tile: &ClimberPosition,
-        direction: &ClimberDirection,
-    ) -> ClimberPosition {
-        let tile_i = match direction {
-            ClimberDirection::Increasing => tile.i + 1,
-            ClimberDirection::Decreasing => tile.i - 1,
-        };
-        ClimberPosition {
+        // direction: &ClimberDirection,
+    ) -> Option<ClimberPosition> {
+        let next_tile_1 = ClimberPosition {
             face: tile.face,
-            i: tile_i,
+            i: tile.i + 1,
             j: tile.j + 1,
+        };
+        if self.has_ground_on_tile(next_tile_1.i, next_tile_1.j) {
+            return Some(next_tile_1);
         }
+        if tile.i > 0 {
+            let next_tile_2 = ClimberPosition {
+                face: tile.face,
+                i: tile.i - 1,
+                j: tile.j + 1,
+            };
+            if self.has_ground_on_tile(next_tile_2.i, next_tile_2.j) {
+                return Some(next_tile_2);
+            }
+        }
+
+        None
     }
 
     // No input checks
@@ -568,6 +582,16 @@ impl Face {
 
     fn set_tile_at(&mut self, pos: TilePosition, tile_type: TileType) {
         self.tiles[pos.i as usize][pos.j as usize] = tile_type;
+    }
+
+    fn get_tile_coords_from_pos(&self, translation: Vec3) -> (u16, u16) {
+        let relative = translation - self.origin;
+        let j = (relative.y / TILE_SIZE).round() as u16;
+        let i = match self.direction {
+            FaceDirection::West | FaceDirection::East => (relative.z / TILE_SIZE).trunc(),
+            FaceDirection::North | FaceDirection::South => (relative.x / TILE_SIZE).trunc(),
+        } as u16;
+        (i, j)
     }
 }
 

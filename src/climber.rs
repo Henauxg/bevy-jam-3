@@ -8,11 +8,7 @@ use bevy_tweening::{
     Animator, EaseFunction, RepeatCount, Tween,
 };
 
-use crate::{
-    assets::GameAssets,
-    level::{ClimberData, ClimberDirection},
-    Face,
-};
+use crate::{assets::GameAssets, level::ClimberData, Face};
 
 #[derive(Clone, Debug)]
 pub struct ClimberPosition {
@@ -24,15 +20,17 @@ pub struct ClimberPosition {
 #[derive(Clone, Debug)]
 enum ClimberState {
     Waiting {
-        tile: ClimberPosition,
+        on_tile: ClimberPosition,
         // next_tile: ClimberPosition,
-        direction: ClimberDirection,
+        // direction: ClimberDirection,
     },
     Moving {
-        to: ClimberPosition,
-        direction: ClimberDirection,
+        to_tile: ClimberPosition,
+        // direction: ClimberDirection,
     },
-    Falling,
+    Falling {
+        on_face: Entity,
+    },
     Saved,
     Dead,
 }
@@ -42,16 +40,12 @@ pub struct Climber {
     state: ClimberState,
 }
 
-fn climber_start_falling(climber: &mut Climber) -> ClimberState {
-    ClimberState::Falling
-}
-
 fn climber_start_moving(
     translation: &Vec3,
     next_translation: &Vec3,
     // tile: &ClimberPosition,
     next_tile: &ClimberPosition,
-    direction: ClimberDirection,
+    // direction: ClimberDirection,
     animator: &mut Animator<Transform>,
 ) -> ClimberState {
     let tween = Tween::new(
@@ -83,8 +77,8 @@ fn climber_start_moving(
     animator.set_tweenable(tween);
 
     ClimberState::Moving {
-        to: next_tile.clone(),
-        direction,
+        to_tile: next_tile.clone(),
+        // direction,
     }
 }
 
@@ -94,35 +88,50 @@ pub fn update_climbers(
 ) {
     for (mut transform, mut climber, mut animator) in climbers.iter_mut() {
         match &climber.state {
-            ClimberState::Waiting { tile, direction } => {
+            ClimberState::Waiting { on_tile: tile } => {
                 let face = faces
                     .get(tile.face)
                     .expect("Climber does not appear to have a Face reference");
                 // If climber doesn't have a rod beneath him anymore : falling
-                if !face.has_ground_on_tile(&tile) {
-                    info!("Climber falling");
-                    climber.state = climber_start_falling(&mut climber);
+                if !face.has_ground_on_tile(tile.i, tile.j) {
+                    info!("Climber started falling from {} {}", tile.i, tile.j);
+                    climber.state = ClimberState::Falling { on_face: tile.face };
                 } else {
-                    let next_tile = face.get_next_tile(tile, direction);
-
-                    // If a rod can be reached: start moving to that rod
-                    if face.has_ground_on_tile(&next_tile) {
-                        info!(
-                            "Climber chose a next tile : {} {} and started moving",
-                            next_tile.i, next_tile.j
-                        );
+                    if let Some(next_tile) = face.get_next_tile_with_ground(tile) {
                         let next_pos = face.climber_get_pos_from_tile(&next_tile);
+                        info!(
+                            "Climber chose a next tile {} {} from {} {} and started moving",
+                            next_tile.i, next_tile.j, tile.i, tile.j
+                        );
                         climber.state = climber_start_moving(
                             &transform.translation,
                             &next_pos,
                             &next_tile,
-                            *direction,
+                            // *direction,
                             &mut animator,
                         );
                     }
+
+                    // let next_tile = face.get_next_tile(tile, direction);
+
+                    // // If a rod can be reached: start moving to that rod
+                    // if face.has_ground_on_tile(&next_tile) {
+                    //     info!(
+                    //         "Climber chose a next tile : {} {} and started moving",
+                    //         next_tile.i, next_tile.j
+                    //     );
+                    //     let next_pos = face.climber_get_pos_from_tile(&next_tile);
+                    //     climber.state = climber_start_moving(
+                    //         &transform.translation,
+                    //         &next_pos,
+                    //         &next_tile,
+                    //         *direction,
+                    //         &mut animator,
+                    //     );
+                    // }
                 }
             }
-            ClimberState::Moving { to, direction } => {
+            ClimberState::Moving { to_tile: to } => {
                 if animator.tweenable().progress() >= 1. {
                     info!("Climber movement done");
                     // TODO No tweening for pillars & climbers, animate according to fixed updates.
@@ -134,25 +143,45 @@ pub fn update_climbers(
                         climber.state = ClimberState::Saved;
                     } else {
                         // if reached the max width, swap direction for now
-                        let direction = if (*direction == ClimberDirection::Increasing
-                            && to.i >= face.size.w - 1)
-                            || (*direction == ClimberDirection::Decreasing && to.i <= 0)
-                        {
-                            direction.get_opposite()
-                        } else {
-                            *direction
-                        };
+                        // let direction = if (*direction == ClimberDirection::Increasing
+                        //     && to.i >= face.size.w - 1)
+                        //     || (*direction == ClimberDirection::Decreasing && to.i <= 0)
+                        // {
+                        //     direction.get_opposite()
+                        // } else {
+                        //     *direction
+                        // };
                         climber.state = ClimberState::Waiting {
-                            tile: to.clone(),
-                            direction,
+                            on_tile: to.clone(),
+                            // direction,
                         };
                     }
                 }
             }
-            ClimberState::Falling => {
+            ClimberState::Falling {
+                on_face: face_entity,
+            } => {
                 // If a rod is reached : waiting
-                // If the void is reached : dead
-                transform.translation.y -= 0.05;
+                let face = faces
+                    .get(*face_entity)
+                    .expect("Climber does not appear to have a Face reference");
+
+                let (i, j) = face.get_tile_coords_from_pos(transform.translation);
+                // info!("Falling climber requested to land on tile {} {}", i, j);
+                if face.has_ground_on_tile(i, j) {
+                    info!("Climber landed on tile {} {}", i, j);
+                    let landed_on = ClimberPosition {
+                        face: *face_entity,
+                        i,
+                        j,
+                    };
+                    transform.translation = face.climber_get_pos_from_tile(&landed_on);
+                    climber.state = ClimberState::Waiting { on_tile: landed_on };
+                } else {
+                    transform.translation.y -= 0.05;
+                }
+
+                // If the ground is reached : dead
                 if transform.translation.y <= 0.0 {
                     climber.state = ClimberState::Dead;
                 }
@@ -196,7 +225,7 @@ pub fn spawn_climber(
         },))
         .insert(Climber {
             state: ClimberState::Waiting {
-                tile: ClimberPosition {
+                on_tile: ClimberPosition {
                     face: face_entity,
                     i: climber_data.tile_i,
                     j: climber_data.tile_j,
@@ -206,7 +235,7 @@ pub fn spawn_climber(
                 //     i: climber_data.next_i,
                 //     j: climber_data.tile_j + 1,
                 // },
-                direction: climber_data.direction,
+                // direction: climber_data.direction,
             },
         })
         .insert(Animator::new(tween))
