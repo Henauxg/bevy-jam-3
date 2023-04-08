@@ -7,7 +7,7 @@ use bevy::prelude::{
 
 use crate::{
     assets::{GameAssets, TILE_SIZE},
-    level::{FaceDirection, PillarData},
+    data::{FaceDirection, PillarData},
 };
 
 #[derive(Clone, Debug)]

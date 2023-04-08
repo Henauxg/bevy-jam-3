@@ -1,8 +1,6 @@
 use std::time::Duration;
 
-use bevy::prelude::{
-    default, info, Bundle, Component, EventReader, Name, Query, SpatialBundle, Transform, Vec3,
-};
+use bevy::prelude::{info, Component, EventReader, Query, Transform, Vec3};
 use bevy_mod_picking::{PickingEvent, SelectionEvent};
 use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween};
 
@@ -10,23 +8,9 @@ use self::{face::Face, rod::MovableRod};
 
 pub mod climber;
 pub mod face;
+pub mod level;
 pub mod pillar;
 pub mod rod;
-
-#[derive(Bundle, Default)]
-pub struct Levelbundle {
-    name: Name,
-    spatial: SpatialBundle,
-}
-
-impl Levelbundle {
-    pub fn new(name: &str) -> Self {
-        Self {
-            name: Name::from(name),
-            ..default()
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug)]
 pub struct TilePosition {
@@ -40,6 +24,7 @@ pub enum TileType {
     StaticRod,
     MovableRod,
 }
+
 // #[derive(Clone, Debug)]
 // pub struct TileData {
 //     pub kind: TileType,

@@ -4,8 +4,8 @@ use bevy::{
     },
     input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel},
     prelude::{
-        default, App, Camera, Camera3d, Camera3dBundle, Commands, CoreSet, EventReader,
-        EventWriter, Input, KeyCode, MouseButton, Plugin, Query, Res, Transform, Vec2, Vec3,
+        default, App, Camera, Camera3d, Camera3dBundle, Commands, EventReader, EventWriter, Input,
+        KeyCode, MouseButton, Plugin, Query, Res, Transform, Vec2, Vec3,
     },
     time::Time,
 };

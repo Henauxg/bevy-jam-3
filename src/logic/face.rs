@@ -5,7 +5,7 @@ use crate::{
         CLIMBER_LEVITATE_DISTANCE, CLIMBER_RADIUS, HALF_TILE_SIZE, HALF_VISIBLE_ROD_LENGTH,
         TILE_SIZE,
     },
-    level::{FaceDirection, FaceSize},
+    data::{FaceDirection, FaceSize},
     TilePosition, TileType,
 };
 

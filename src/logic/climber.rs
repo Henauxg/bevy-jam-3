@@ -11,7 +11,7 @@ use bevy_tweening::{
 
 use crate::{
     assets::{GameAssets, CLIMBER_LEVITATE_DISTANCE, CLIMBER_RADIUS, TILE_SIZE},
-    level::ClimberData,
+    data::ClimberData,
     Face, Pillar, Pylon,
 };
 
