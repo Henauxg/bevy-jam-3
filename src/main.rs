@@ -1,4 +1,4 @@
-use std::{collections::HashMap, f32::consts::PI, time::Duration};
+use std::{collections::HashMap, f32::consts::PI};
 
 use assets::{
     GameAssets, CLIMBER_LEVITATE_DISTANCE, CLIMBER_RADIUS, HALF_ROD_WIDTH, HALF_TILE_SIZE,
@@ -10,45 +10,43 @@ use bevy::{
     input::common_conditions::input_toggle_active,
     pbr::CascadeShadowConfigBuilder,
     prelude::{
-        default, info, shape, App, Assets, BuildChildren, Bundle, Color, Commands, Component,
-        CoreSchedule, DirectionalLight, DirectionalLightBundle, Entity, EulerRot, EventReader,
-        EventWriter, IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name, PbrBundle,
-        PluginGroup, Quat, Query, Res, ResMut, SpatialBundle, StandardMaterial, Transform, Vec2,
-        Vec3,
+        default, shape, App, Assets, BuildChildren, Color, Commands, CoreSchedule,
+        DirectionalLight, DirectionalLightBundle, Entity, EulerRot, EventReader, EventWriter,
+        IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name, PbrBundle, PluginGroup, Quat,
+        Res, ResMut, StandardMaterial, Transform, Vec3,
     },
-    render::{mesh::Indices, render_resource::PrimitiveTopology},
-    ui::{FocusPolicy, Interaction},
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
 };
 
-use bevy_mod_picking::{
-    highlight::Highlight, DefaultHighlighting, DefaultPickingPlugins, Hover, PickableMesh,
-    PickingEvent, SelectionEvent,
-};
-use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween, TweeningPlugin};
+use bevy_mod_picking::{DefaultHighlighting, DefaultPickingPlugins};
+use bevy_tweening::TweeningPlugin;
 use camera::{camera_input_map, setup_camera};
 
-use climber::{spawn_climber, update_climbers, ClimberPosition};
 use debug::display_stats_ui;
-use level::{test_level_data, FaceDirection, FaceSize, PillarData, TileDataType};
-use rand::{distributions::Uniform, prelude::Distribution};
+use grass::setup_grass;
+use level::{test_level_data, FaceDirection, FaceSize, TileDataType};
+use logic::{
+    climber::{spawn_climber, update_climbers},
+    face::Face,
+    handle_picking_events,
+    pillar::{spawn_pillar, Pillar},
+    rod::{spawn_movable_rod, spawn_static_rod},
+    Levelbundle, Pylon, TilePosition, TileType,
+};
 use smooth_bevy_cameras::{controllers::orbit::OrbitCameraPlugin, LookTransformPlugin};
 
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 #[cfg(debug_assertions)]
 use debug::EguiInputBlockerPlugin;
-use warbler_grass::{
-    prelude::{Grass, WarblersExplicitBundle},
-    warblers_plugin::WarblersPlugin,
-    GrassConfiguration,
-};
+use warbler_grass::warblers_plugin::WarblersPlugin;
 
 mod assets;
 mod camera;
-mod climber;
+mod grass;
 mod level;
+mod logic;
 
 #[cfg(debug_assertions)]
 mod debug;
@@ -71,96 +69,6 @@ pub const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92); // 0, 0, 28,
 
 const WINDOW_TITLE: &str = "Bevy-jam-3";
 
-#[derive(Bundle, Default)]
-pub struct Levelbundle {
-    name: Name,
-    spatial: SpatialBundle,
-}
-
-impl Levelbundle {
-    pub fn new(name: &str) -> Self {
-        Self {
-            name: Name::from(name),
-            ..default()
-        }
-    }
-}
-
-#[derive(Component, Clone, Debug)]
-pub struct Rod {}
-
-#[derive(Clone, Copy, Debug)]
-pub struct TilePosition {
-    i: u16,
-    j: u16,
-}
-#[derive(Component, Clone, Debug)]
-pub struct MovableRod {
-    pub face: Entity,
-    pub opposite_face: Entity,
-    pub position: TilePosition,
-}
-impl MovableRod {
-    fn swap_face(&mut self) {
-        let tmp_face = self.face;
-        self.face = self.opposite_face;
-        self.opposite_face = tmp_face;
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TileType {
-    Void,
-    StaticRod,
-    MovableRod,
-}
-// #[derive(Clone, Debug)]
-// pub struct TileData {
-//     pub kind: TileType,
-// }
-
-#[derive(Clone, Debug)]
-pub struct PillarFace {
-    // pub size: FaceSize,
-    // pub tiles: Vec<Vec<TileType>>,
-}
-
-#[derive(Component, Clone, Debug)]
-pub struct Pillar {
-    // pub faces: Vec<PillarFace>,
-    pub unpowered_pylons: HashMap<FaceDirection, Vec<Entity>>,
-}
-
-impl Pillar {
-    fn get_pylon_from_face(&mut self, dir: &FaceDirection) -> Option<Entity> {
-        let pylons = self.unpowered_pylons.get_mut(&dir).unwrap();
-        if pylons.len() > 0 {
-            return Some(pylons.pop().unwrap());
-        }
-        None
-    }
-
-    fn pop_first_available_pylon(&mut self) -> Option<Entity> {
-        for dir in [
-            FaceDirection::East,
-            FaceDirection::West,
-            FaceDirection::South,
-            FaceDirection::North,
-        ] {
-            let pylons = self.unpowered_pylons.get_mut(&dir).unwrap();
-            if pylons.len() > 0 {
-                return Some(pylons.pop().unwrap());
-            }
-        }
-        None
-    }
-}
-
-#[derive(Component, Clone, Debug)]
-pub struct Pylon {
-    powered: bool,
-}
-
 pub fn exit_on_window_close_system(
     mut app_exit_events: EventWriter<AppExit>,
     mut window_close_requested_events: EventReader<WindowCloseRequested>,
@@ -169,129 +77,6 @@ pub fn exit_on_window_close_system(
         app_exit_events.send(AppExit);
         window_close_requested_events.clear();
     }
-}
-
-fn handle_picking_events(
-    mut events: EventReader<PickingEvent>,
-    mut rods_animators: Query<(&Transform, &mut Animator<Transform>, &mut MovableRod)>,
-    mut faces: Query<&mut Face>,
-) {
-    for event in events.iter() {
-        match event {
-            PickingEvent::Selection(SelectionEvent::JustSelected(entity)) => {
-                info!("SelectionEvent JustSelected {:?}", entity);
-            }
-            PickingEvent::Selection(SelectionEvent::JustDeselected(entity)) => {
-                info!("SelectionEvent JustDeselected {:?}", entity);
-            }
-            PickingEvent::Hover(_) => {}
-            PickingEvent::Clicked(entity) => {
-                if let Ok((rod_transform, mut rod_animator, mut rod)) =
-                    rods_animators.get_mut(*entity)
-                {
-                    // TODO Add a criteria here
-
-                    // Immediately set void for this face
-                    let mut face = faces
-                        .get_mut(rod.face)
-                        .expect("Rod does not appear to have a Face reference");
-                    face.remove_tile_at(rod.position);
-
-                    let mut opposite_face = faces
-                        .get_mut(rod.opposite_face)
-                        .expect("Rod does not appear to have a Face reference");
-                    // TODO set MovingRod on the other face after a delay (animation duration / 2)
-                    opposite_face.set_tile_at(rod.position, TileType::MovableRod);
-
-                    rod.swap_face();
-
-                    if rod_animator.tweenable().progress() >= 1.0 {
-                        // TODO Use another cirteria
-                        let tween = Tween::new(
-                            EaseFunction::QuadraticInOut,
-                            Duration::from_secs(1),
-                            TransformPositionLens {
-                                start: rod_transform.translation,
-                                end: Vec3::new(
-                                    -rod_transform.translation.x,
-                                    rod_transform.translation.y,
-                                    rod_transform.translation.z,
-                                ),
-                            },
-                        );
-                        rod_animator.set_tweenable(tween);
-                    }
-                    // TODO Could reverse it if interacting again while active
-                }
-            }
-        }
-    }
-}
-
-fn spawn_movable_rod(
-    commands: &mut Commands,
-    assets: &Res<GameAssets>,
-    face: Entity,
-    opposite_face: Entity,
-    tile_pos: TilePosition,
-    x: f32,
-    y: f32,
-    z: f32,
-) -> Entity {
-    // Dummy tween
-    let tween = Tween::new(
-        EaseFunction::QuadraticInOut,
-        Duration::from_secs(1),
-        TransformPositionLens {
-            start: Vec3::new(x, y, z),
-            end: Vec3::new(x, y, z),
-        },
-    )
-    .with_repeat_count(0);
-
-    commands
-        .spawn((
-            PbrBundle {
-                mesh: assets.movable_rod_mesh.clone(),
-                material: assets.movable_rod_mat.clone(),
-                transform: Transform::from_xyz(x, y, z),
-                ..default()
-            },
-            Rod {},
-            MovableRod {
-                face,
-                position: tile_pos,
-                opposite_face,
-            },
-            // PickableBundle::default()
-            Highlight::default(),
-            Hover::default(),
-            FocusPolicy::Block,
-            Interaction::default(),
-            PickableMesh::default(),
-            Animator::new(tween),
-            Name::from("Movable Rod"),
-        ))
-        .id()
-}
-
-fn spawn_static_rod(
-    commands: &mut Commands,
-    assets: &Res<GameAssets>,
-    x: f32,
-    y: f32,
-    z: f32,
-) -> Entity {
-    commands
-        .spawn((PbrBundle {
-            mesh: assets.static_rod_mesh.clone(),
-            material: assets.static_rod_mat.clone(),
-            transform: Transform::from_xyz(x, y, z), //.with_rotation(Quat::from_axis_angle(Vec3::Y, PI/2.)
-            ..default()
-        },))
-        .insert(Rod {})
-        .insert(Name::from("Static Rod"))
-        .id()
 }
 
 fn setup_scene(
@@ -549,180 +334,6 @@ fn setup_scene(
             .entity(pillar_entity)
             .insert(Pillar { unpowered_pylons });
     }
-}
-
-fn spawn_pillar(
-    commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    assets: &Res<GameAssets>,
-    pillar_data: &PillarData,
-) -> Entity {
-    commands
-        .spawn((
-            PbrBundle {
-                mesh: meshes.add(
-                    shape::Box::new(
-                        pillar_data.w as f32 * TILE_SIZE,
-                        pillar_data.h as f32 * TILE_SIZE,
-                        pillar_data.w as f32 * TILE_SIZE,
-                    )
-                    .into(),
-                ),
-                material: assets.pillar_mat.clone(),
-                transform: Transform::from_translation(Vec3::new(
-                    pillar_data.x,
-                    pillar_data.h as f32 * TILE_SIZE / 2.,
-                    pillar_data.z,
-                )),
-                ..default()
-            },
-            Name::from("Pillar"),
-        ))
-        .id()
-}
-
-#[derive(Component, Clone, Debug)]
-pub struct Face {
-    origin: Vec3,
-    direction: FaceDirection,
-    size: FaceSize,
-    tiles: Vec<Vec<TileType>>,
-}
-
-impl Face {
-    fn is_valid(&self, i: u16, j: u16) -> bool {
-        i < self.size.w && j < self.size.h
-    }
-
-    fn has_ground_on_tile(&self, i: u16, j: u16) -> bool {
-        if !self.is_valid(i, j) {
-            return false;
-        }
-        self.tiles[i as usize][j as usize] != TileType::Void
-    }
-
-    fn climber_get_pos_from_tile(&self, pos: &ClimberPosition) -> Vec3 {
-        let factor = match self.direction {
-            FaceDirection::West | FaceDirection::South => -1.,
-            FaceDirection::North | FaceDirection::East => 1.,
-        };
-        let y = self.origin.y
-            + pos.j as f32 * TILE_SIZE
-            + TILE_SIZE
-            + CLIMBER_RADIUS
-            + CLIMBER_LEVITATE_DISTANCE;
-        let horizontal_delta = pos.i as f32 * TILE_SIZE + HALF_TILE_SIZE;
-        match self.direction {
-            FaceDirection::West | FaceDirection::East => Vec3::new(
-                self.origin.x + factor * HALF_VISIBLE_ROD_LENGTH,
-                y,
-                self.origin.z + horizontal_delta,
-            ),
-            FaceDirection::North | FaceDirection::South => Vec3::new(
-                self.origin.x + horizontal_delta,
-                y,
-                self.origin.z + factor * HALF_VISIBLE_ROD_LENGTH,
-            ),
-        }
-    }
-
-    fn get_next_tile_with_ground(
-        &self,
-        tile: &ClimberPosition,
-        // direction: &ClimberDirection,
-    ) -> Option<ClimberPosition> {
-        let next_tile_1 = ClimberPosition {
-            face: tile.face,
-            i: tile.i + 1,
-            j: tile.j + 1,
-        };
-        if self.has_ground_on_tile(next_tile_1.i, next_tile_1.j) {
-            return Some(next_tile_1);
-        }
-        if tile.i > 0 {
-            let next_tile_2 = ClimberPosition {
-                face: tile.face,
-                i: tile.i - 1,
-                j: tile.j + 1,
-            };
-            if self.has_ground_on_tile(next_tile_2.i, next_tile_2.j) {
-                return Some(next_tile_2);
-            }
-        }
-
-        None
-    }
-
-    // No input checks
-    fn remove_tile_at(&mut self, pos: TilePosition) {
-        self.tiles[pos.i as usize][pos.j as usize] = TileType::Void;
-    }
-
-    fn set_tile_at(&mut self, pos: TilePosition, tile_type: TileType) {
-        self.tiles[pos.i as usize][pos.j as usize] = tile_type;
-    }
-
-    fn get_tile_coords_from_pos(&self, translation: Vec3) -> (u16, u16) {
-        let relative = translation - self.origin;
-        let j = (relative.y / TILE_SIZE).round() as u16;
-        let i = match self.direction {
-            FaceDirection::West | FaceDirection::East => (relative.z / TILE_SIZE).trunc(),
-            FaceDirection::North | FaceDirection::South => (relative.x / TILE_SIZE).trunc(),
-        } as u16;
-        (i, j)
-    }
-}
-
-fn custom_grass_mesh() -> Mesh {
-    let mut grass_mesh = Mesh::new(PrimitiveTopology::TriangleList);
-    grass_mesh.insert_attribute(
-        Mesh::ATTRIBUTE_POSITION,
-        vec![
-            [0., 0., 0.],
-            [0.25, 0., 0.],
-            [0.125, 0., 0.2],
-            [0.125, 1.0, 0.075],
-        ],
-    );
-    grass_mesh.set_indices(Some(Indices::U32(vec![1, 0, 3, 2, 1, 3, 0, 2, 3])));
-    grass_mesh
-}
-
-fn setup_grass(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
-    commands.insert_resource(GrassConfiguration {
-        main_color: Color::rgb(0.2, 0.5, 0.0),   //205, 38, 255, 255
-        bottom_color: Color::rgb(0.1, 0.1, 0.0), //  25, 0, 12, 255
-        wind: Vec2::new(0.6, 0.6),
-    });
-
-    let grass_mesh = meshes.add(custom_grass_mesh());
-
-    let base_count = 400;
-    let per_radius_count = 75;
-    let noise_range = Uniform::from(0.9..1.1);
-    let mut rng = rand::thread_rng();
-
-    let mut positions: Vec<Vec3> = Vec::new();
-    for radius in 3..45 {
-        let grass_blades_count = base_count + radius * per_radius_count;
-        for i in 0..grass_blades_count {
-            let f = i as f32 / grass_blades_count as f32;
-            let dist = radius as f32 / 2.0;
-            let noise: f32 = noise_range.sample(&mut rng);
-            let x = (f * std::f32::consts::PI * 2.).cos() * dist * noise;
-            let y = (f * std::f32::consts::PI * 2.).sin() * dist * noise;
-            positions.push(Vec3::new(x, 0., y))
-        }
-    }
-
-    commands.spawn(WarblersExplicitBundle {
-        grass_mesh,
-        grass: Grass {
-            positions,
-            height: 0.3,
-        },
-        ..default()
-    });
 }
 
 fn main() {

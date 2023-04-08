@@ -132,6 +132,7 @@ pub fn update_climbers(
                 }
             }
             ClimberState::Moving { to_tile: to } => {
+                // "Clean code"
                 if animator.tweenable().progress() >= 1. {
                     info!("Climber movement done");
                     // TODO No tweening for pillars & climbers, animate according to fixed updates.
@@ -149,7 +150,6 @@ pub fn update_climbers(
                             pillar.pop_first_available_pylon().unwrap()
                         };
                         // TODO Pylon as full cylinder
-                        // TODO Use closest pylon
                         let (mut pylon, pylon_transform, mut mat_handle) =
                             pylons.get_mut(pylon_entity).unwrap();
                         pylon.powered = true;
