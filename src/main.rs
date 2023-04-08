@@ -21,7 +21,7 @@ use bevy::{
 
 use bevy_mod_picking::{DefaultHighlighting, DefaultPickingPlugins};
 use bevy_tweening::TweeningPlugin;
-use camera::{camera_input_map, setup_camera};
+use camera::{setup_camera, CustomOrbitCameraPlugin};
 
 use debug::display_stats_ui;
 use grass::setup_grass;
@@ -353,7 +353,7 @@ fn main() {
     }))
     .add_plugin(TweeningPlugin)
     .add_plugin(LookTransformPlugin)
-    .add_plugin(OrbitCameraPlugin::new(true))
+    .add_plugin(CustomOrbitCameraPlugin)
     .add_plugins(DefaultPickingPlugins)
     .add_plugin(WarblersPlugin);
 
@@ -363,8 +363,7 @@ fn main() {
         .add_startup_system(setup_scene)
         .add_startup_system(setup_grass);
 
-    app.add_system(camera_input_map)
-        .add_system(handle_picking_events)
+    app.add_system(handle_picking_events)
         .add_system(update_climbers.in_schedule(CoreSchedule::FixedUpdate))
         .add_system(exit_on_window_close_system);
 
