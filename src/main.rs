@@ -2,7 +2,7 @@ use std::{collections::HashMap, f32::consts::PI, time::Duration};
 
 use assets::{
     GameAssets, CLIMBER_LEVITATE_DISTANCE, CLIMBER_RADIUS, HALF_ROD_WIDTH, HALF_TILE_SIZE,
-    HALF_VISIBLE_ROD_LENGTH, MOVABLE_ROD_MOVEMENT_AMPLITUDE, TILE_SIZE,
+    HALF_VISIBLE_ROD_LENGTH, MOVABLE_ROD_MOVEMENT_AMPLITUDE, PYLON_HORIZONTAL_DELTA, TILE_SIZE,
 };
 use bevy::{
     app::AppExit,
@@ -122,12 +122,43 @@ pub enum TileType {
 #[derive(Clone, Debug)]
 pub struct PillarFace {
     // pub size: FaceSize,
-    pub tiles: Vec<Vec<TileType>>,
+    // pub tiles: Vec<Vec<TileType>>,
 }
 
 #[derive(Component, Clone, Debug)]
 pub struct Pillar {
-    pub faces: Vec<PillarFace>,
+    // pub faces: Vec<PillarFace>,
+    pub unpowered_pylons: HashMap<FaceDirection, Vec<Entity>>,
+}
+
+impl Pillar {
+    fn get_pylon_from_face(&mut self, dir: &FaceDirection) -> Option<Entity> {
+        let pylons = self.unpowered_pylons.get_mut(&dir).unwrap();
+        if pylons.len() > 0 {
+            return Some(pylons.pop().unwrap());
+        }
+        None
+    }
+
+    fn pop_first_available_pylon(&mut self) -> Option<Entity> {
+        for dir in [
+            FaceDirection::East,
+            FaceDirection::West,
+            FaceDirection::South,
+            FaceDirection::North,
+        ] {
+            let pylons = self.unpowered_pylons.get_mut(&dir).unwrap();
+            if pylons.len() > 0 {
+                return Some(pylons.pop().unwrap());
+            }
+        }
+        None
+    }
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct Pylon {
+    powered: bool,
 }
 
 pub fn exit_on_window_close_system(
@@ -384,6 +415,12 @@ fn setup_scene(
             ),
         ]);
 
+        let mut unpowered_pylons: HashMap<FaceDirection, Vec<Entity>> = HashMap::from([
+            (FaceDirection::East, vec![]),
+            (FaceDirection::West, vec![]),
+            (FaceDirection::North, vec![]),
+            (FaceDirection::South, vec![]),
+        ]);
         for (face_direction, face) in pillar.faces {
             let &face_entity = face_entities.get(&face_direction).unwrap();
             let opposite_face_entity = face_entities.get(&face_direction.get_opposite()).unwrap();
@@ -432,13 +469,14 @@ fn setup_scene(
                 commands.entity(pillar_entity).add_child(tile_entity);
             }
 
+            let face_origin = Vec3::new(
+                pillar.x + factor * pillar_half_width,
+                0.,
+                pillar.z - pillar_half_width, // TODO North south
+            );
             commands.entity(face_entity).insert(Face {
-                origin: Vec3::new(
-                    pillar.x + factor * pillar_half_width,
-                    0.,
-                    pillar.z - pillar_half_width, // TODO North south
-                ),
-                direction: face_direction,
+                origin: face_origin,
+                direction: face_direction.clone(),
                 size: FaceSize {
                     w: pillar.w,
                     h: pillar.h,
@@ -447,11 +485,54 @@ fn setup_scene(
             });
             commands.entity(pillar_entity).add_child(face_entity);
 
-            for climber in face.climbers {
+            let face_climbers_count = face.climbers.len();
+            let pylons_delta = pillar.w as f32 * TILE_SIZE / (face_climbers_count + 1) as f32;
+            for (climber_idx, climber) in face.climbers.iter().enumerate() {
+                // TODO Spawn pylon
+                let pylon_offset = pylons_delta * (climber_idx + 1) as f32;
+                let pylon_y = pillar_half_height;
+                let (pylon_x, pylon_z) = match face_direction {
+                    FaceDirection::West | FaceDirection::East => (
+                        factor * (pillar_half_width - PYLON_HORIZONTAL_DELTA),
+                        pillar_half_width - pylon_offset,
+                    ),
+                    FaceDirection::North | FaceDirection::South => (
+                        pillar_half_width - pylon_offset,
+                        factor * (pillar_half_width - PYLON_HORIZONTAL_DELTA),
+                    ),
+                };
+                let unpowered_pylon = commands
+                    .spawn((
+                        PbrBundle {
+                            mesh: meshes.add(
+                                shape::Cylinder {
+                                    radius: 0.15,
+                                    height: 0.1,
+                                    resolution: 16,
+                                    segments: 1,
+                                }
+                                .into(),
+                            ),
+                            material: assets.pillar_mat.clone(),
+                            transform: Transform::from_translation(Vec3::new(
+                                pylon_x, pylon_y, pylon_z,
+                            )),
+                            ..default()
+                        },
+                        Pylon { powered: false },
+                    ))
+                    .id();
+                unpowered_pylons
+                    .get_mut(&face_direction)
+                    .unwrap()
+                    .push(unpowered_pylon);
+                commands.entity(pillar_entity).add_child(unpowered_pylon);
+
                 let climber_entity = spawn_climber(
                     &mut commands,
                     &assets,
                     face_entity,
+                    pillar_entity,
                     &climber,
                     factor * (HALF_VISIBLE_ROD_LENGTH + pillar_half_width),
                     climber.tile_j as f32 * TILE_SIZE
@@ -464,6 +545,9 @@ fn setup_scene(
                 commands.entity(level_entity).add_child(climber_entity);
             }
         }
+        commands
+            .entity(pillar_entity)
+            .insert(Pillar { unpowered_pylons });
     }
 }
 
@@ -491,12 +575,6 @@ fn spawn_pillar(
                     pillar_data.z,
                 )),
                 ..default()
-            },
-            Pillar {
-                faces: vec![PillarFace {
-                    // size: todo!(),
-                    tiles: vec![],
-                }],
             },
             Name::from("Pillar"),
         ))

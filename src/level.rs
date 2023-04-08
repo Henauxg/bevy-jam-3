@@ -88,7 +88,7 @@ pub fn test_level_data() -> LevelData {
         name: "Test level".to_string(),
         pillars: vec![PillarData {
             w: 5,
-            h: 10,
+            h: 7,
             x: 0.,
             z: 0.,
             faces: HashMap::from([
@@ -142,6 +142,11 @@ pub fn test_level_data() -> LevelData {
                                 i: 2,
                                 j: 2,
                                 kind: TileDataType::MovableRod,
+                            },
+                            TileData {
+                                i: 3,
+                                j: 3,
+                                kind: TileDataType::StaticRod,
                             },
                             TileData {
                                 i: 3,

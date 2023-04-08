@@ -1,14 +1,19 @@
 use std::time::Duration;
 
 use bevy::prelude::{
-    default, info, Commands, Component, Entity, Name, PbrBundle, Query, Res, Transform, Vec3,
+    default, info, BuildChildren, Commands, Component, Entity, Handle, Name, PbrBundle, Query, Res,
+    StandardMaterial, Transform, Vec3, Without,
 };
 use bevy_tweening::{
     lens::{TransformPositionLens, TransformScaleLens},
     Animator, EaseFunction, RepeatCount, Tween,
 };
 
-use crate::{assets::GameAssets, level::ClimberData, Face};
+use crate::{
+    assets::{GameAssets, CLIMBER_LEVITATE_DISTANCE, CLIMBER_RADIUS, TILE_SIZE},
+    level::ClimberData,
+    Face, Pillar, Pylon,
+};
 
 #[derive(Clone, Debug)]
 pub struct ClimberPosition {
@@ -38,6 +43,7 @@ enum ClimberState {
 #[derive(Component, Clone, Debug)]
 pub struct Climber {
     state: ClimberState,
+    current_pillar: Entity,
 }
 
 fn climber_start_moving(
@@ -83,10 +89,22 @@ fn climber_start_moving(
 }
 
 pub fn update_climbers(
-    mut climbers: Query<(&mut Transform, &mut Climber, &mut Animator<Transform>)>,
+    mut commands: Commands,
+    mut climbers: Query<(
+        &mut Transform,
+        &mut Climber,
+        &mut Animator<Transform>,
+        Entity,
+    )>,
     faces: Query<&Face>,
+    mut pillars: Query<&mut Pillar>,
+    mut pylons: Query<
+        (&mut Pylon, &mut Transform, &mut Handle<StandardMaterial>),
+        Without<Climber>,
+    >,
+    assets: Res<GameAssets>,
 ) {
-    for (mut transform, mut climber, mut animator) in climbers.iter_mut() {
+    for (mut transform, mut climber, mut animator, climber_entity) in climbers.iter_mut() {
         match &climber.state {
             ClimberState::Waiting { on_tile: tile } => {
                 let face = faces
@@ -111,24 +129,6 @@ pub fn update_climbers(
                             &mut animator,
                         );
                     }
-
-                    // let next_tile = face.get_next_tile(tile, direction);
-
-                    // // If a rod can be reached: start moving to that rod
-                    // if face.has_ground_on_tile(&next_tile) {
-                    //     info!(
-                    //         "Climber chose a next tile : {} {} and started moving",
-                    //         next_tile.i, next_tile.j
-                    //     );
-                    //     let next_pos = face.climber_get_pos_from_tile(&next_tile);
-                    //     climber.state = climber_start_moving(
-                    //         &transform.translation,
-                    //         &next_pos,
-                    //         &next_tile,
-                    //         *direction,
-                    //         &mut animator,
-                    //     );
-                    // }
                 }
             }
             ClimberState::Moving { to_tile: to } => {
@@ -140,20 +140,38 @@ pub fn update_climbers(
                         .expect("Climber does not appear to have a Face reference");
 
                     if to.j >= face.size.h - 1 {
+                        let mut pillar = pillars.get_mut(climber.current_pillar).unwrap();
+                        let pylon_entity = if let Some(same_face_pylon) =
+                            pillar.get_pylon_from_face(&face.direction)
+                        {
+                            same_face_pylon
+                        } else {
+                            pillar.pop_first_available_pylon().unwrap()
+                        };
+                        // TODO Pylon as full cylinder
+                        // TODO Use closest pylon
+                        let (mut pylon, pylon_transform, mut mat_handle) =
+                            pylons.get_mut(pylon_entity).unwrap();
+                        pylon.powered = true;
+                        *mat_handle = assets.climber_mat.clone();
+
+                        let pos = pylon_transform.translation;
+                        let tween = Tween::new(
+                            EaseFunction::QuadraticInOut,
+                            Duration::from_millis(3000),
+                            TransformPositionLens {
+                                start: pos,
+                                end: Vec3::new(pos.x, pos.y + TILE_SIZE, pos.z),
+                            },
+                        );
+                        commands.entity(pylon_entity).insert(Animator::new(tween));
+                        transform.translation =
+                            Vec3::new(0., CLIMBER_RADIUS + CLIMBER_LEVITATE_DISTANCE, 0.);
+                        commands.entity(pylon_entity).add_child(climber_entity);
                         climber.state = ClimberState::Saved;
                     } else {
-                        // if reached the max width, swap direction for now
-                        // let direction = if (*direction == ClimberDirection::Increasing
-                        //     && to.i >= face.size.w - 1)
-                        //     || (*direction == ClimberDirection::Decreasing && to.i <= 0)
-                        // {
-                        //     direction.get_opposite()
-                        // } else {
-                        //     *direction
-                        // };
                         climber.state = ClimberState::Waiting {
                             on_tile: to.clone(),
-                            // direction,
                         };
                     }
                 }
@@ -167,7 +185,6 @@ pub fn update_climbers(
                     .expect("Climber does not appear to have a Face reference");
 
                 let (i, j) = face.get_tile_coords_from_pos(transform.translation);
-                // info!("Falling climber requested to land on tile {} {}", i, j);
                 if face.has_ground_on_tile(i, j) {
                     info!("Climber landed on tile {} {}", i, j);
                     let landed_on = ClimberPosition {
@@ -200,6 +217,7 @@ pub fn spawn_climber(
     commands: &mut Commands,
     assets: &Res<GameAssets>,
     face_entity: Entity,
+    pillar_entity: Entity,
     climber_data: &ClimberData,
     x: f32,
     y: f32,
@@ -230,13 +248,8 @@ pub fn spawn_climber(
                     i: climber_data.tile_i,
                     j: climber_data.tile_j,
                 },
-                // next_tile: ClimberPosition {
-                //     face: face_entity,
-                //     i: climber_data.next_i,
-                //     j: climber_data.tile_j + 1,
-                // },
-                // direction: climber_data.direction,
             },
+            current_pillar: pillar_entity,
         })
         .insert(Animator::new(tween))
         .insert(Name::from("Climber"))
