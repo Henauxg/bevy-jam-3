@@ -1,5 +1,9 @@
-use bevy::prelude::{
-    shape, Assets, Color, FromWorld, Handle, Mesh, Resource, StandardMaterial, World,
+use bevy::{
+    prelude::{
+        shape, AssetServer, Assets, Color, FromWorld, Handle, Mesh, Resource, StandardMaterial,
+        World,
+    },
+    text::Font,
 };
 
 pub const TILE_SIZE: f32 = 0.5;
@@ -21,16 +25,21 @@ pub const PYLON_HORIZONTAL_DELTA: f32 = TILE_SIZE;
 pub const CLIMBER_RADIUS: f32 = 0.15;
 pub const CLIMBER_LEVITATE_DISTANCE: f32 = CLIMBER_RADIUS / 2.;
 
+const REGULAR_FONT: &str = "fonts/DancingScript-Regular.ttf";
+
 #[derive(Resource)]
 pub struct GameAssets {
     pub climber_mesh: Handle<Mesh>,
     pub static_rod_mesh: Handle<Mesh>,
     pub movable_rod_mesh: Handle<Mesh>,
+
     pub pillar_mat: Handle<StandardMaterial>,
     pub static_rod_mat: Handle<StandardMaterial>,
     pub movable_rod_mat: Handle<StandardMaterial>,
     pub movable_rod_highlight_mat: Handle<StandardMaterial>,
     pub climber_mat: Handle<StandardMaterial>,
+
+    pub font: Handle<Font>,
 }
 
 impl FromWorld for GameAssets {
@@ -92,6 +101,11 @@ impl FromWorld for GameAssets {
             ..Default::default()
         });
 
+        let asset_server = cell
+            .get_resource_mut::<AssetServer>()
+            .expect("Failed to get AssetServer");
+        let font = asset_server.load(REGULAR_FONT);
+
         GameAssets {
             climber_mesh,
             static_rod_mesh,
@@ -101,6 +115,7 @@ impl FromWorld for GameAssets {
             movable_rod_mat,
             movable_rod_highlight_mat,
             climber_mat,
+            font,
         }
     }
 }

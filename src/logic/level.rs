@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::{
-        default, shape, Assets, BuildChildren, Bundle, Color, Commands, DespawnRecursiveExt,
-        DirectionalLight, DirectionalLightBundle, Entity, EulerRot, EventReader, Mesh, Name,
-        PbrBundle, Quat, Res, ResMut, Resource, SpatialBundle, Transform, Vec3,
+        default, shape, Assets, BuildChildren, Bundle, Color, Commands, Component,
+        DespawnRecursiveExt, DirectionalLight, DirectionalLightBundle, Entity, EulerRot,
+        EventReader, Mesh, Name, PbrBundle, Quat, Res, ResMut, Resource, SpatialBundle, Transform,
+        Vec3,
     },
 };
 
@@ -25,16 +26,21 @@ use super::{
     Pylon, TilePosition, TileType,
 };
 
+#[derive(Component, Default)]
+pub struct LevelName(pub String);
+
 #[derive(Bundle, Default)]
 pub struct Levelbundle {
     name: Name,
     spatial: SpatialBundle,
+    level_name: LevelName,
 }
 
 impl Levelbundle {
     pub fn new(name: &str) -> Self {
         Self {
             name: Name::from(name),
+            level_name: LevelName(name.to_string()),
             ..default()
         }
     }

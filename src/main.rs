@@ -6,10 +6,12 @@ use bevy::{
     diagnostic::FrameTimeDiagnosticsPlugin,
     input::common_conditions::input_toggle_active,
     prelude::{
-        default, shape, App, Assets, Color, Commands, CoreSchedule, EventReader, EventWriter,
-        Input, IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name, PbrBundle, PluginGroup,
-        Quat, Res, ResMut, StandardMaterial, Transform, Vec3,
+        default, shape, Added, App, Assets, Color, Commands, Component, CoreSchedule, EventReader,
+        EventWriter, Input, IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name, PbrBundle,
+        PluginGroup, Quat, Query, Res, ResMut, StandardMaterial, TextBundle, Transform, Vec3, With,
     },
+    text::{Text, TextSection, TextStyle},
+    ui::{PositionType, Style, UiRect, Val},
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
 };
@@ -25,7 +27,7 @@ use logic::{
     climber::update_climbers,
     face::Face,
     handle_picking_events,
-    level::{level_event_handler, spawn_level, GameLevels, LevelEvent},
+    level::{level_event_handler, spawn_level, GameLevels, LevelEvent, LevelName},
     pillar::Pillar,
     Pylon, TilePosition, TileType,
 };
@@ -86,6 +88,19 @@ fn restart_level(mut level_events: EventWriter<LevelEvent>, keyboard_input: Res<
     }
 }
 
+#[derive(Component, Clone, Debug)]
+struct LevelNameUI;
+
+fn handle_new_levels(
+    mut new_level: Query<&LevelName, Added<LevelName>>,
+    mut level_name_ui: Query<&mut Text, With<LevelNameUI>>,
+) {
+    for loaded_level in new_level.iter_mut() {
+        let mut text = level_name_ui.single_mut();
+        text.sections.first_mut().unwrap().value = loaded_level.0.clone();
+    }
+}
+
 fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -105,6 +120,44 @@ fn setup_scene(
     //     transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
     //     ..default()
     // });
+
+    let text_style = TextStyle {
+        // font: asset_server.load(REGULAR_FONT),
+        font: assets.font.clone(),
+        font_size: 25.0,
+        color: Color::WHITE,
+    };
+    commands.spawn((
+        TextBundle::from_sections([TextSection::new("'R': restart", text_style)]).with_style(
+            Style {
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    bottom: Val::Px(5.0),
+                    left: Val::Px(5.0),
+                    ..default()
+                },
+                ..default()
+            },
+        ),
+    ));
+    let text_style = TextStyle {
+        // font: asset_server.load(REGULAR_FONT),
+        font: assets.font.clone(),
+        font_size: 30.0,
+        color: Color::WHITE,
+    };
+    commands.spawn((
+        TextBundle::from_sections([TextSection::new("LevelName", text_style)]).with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
+                ..default()
+            },
+            ..default()
+        }),
+        LevelNameUI,
+    ));
 
     // Ground TODO : move to level specific
     commands.spawn((
@@ -177,7 +230,8 @@ fn main() {
         .add_system(update_climbers.in_schedule(CoreSchedule::FixedUpdate))
         .add_system(level_event_handler)
         .add_system(exit_on_window_close_system)
-        .add_system(restart_level);
+        .add_system(restart_level)
+        .add_system(handle_new_levels);
 
     #[cfg(debug_assertions)]
     {
