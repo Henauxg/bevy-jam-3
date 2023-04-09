@@ -1,5 +1,5 @@
 use bevy::{
-    prelude::{default, Assets, Color, Commands, Mesh, ResMut, Vec2, Vec3},
+    prelude::{default, Assets, Color, Commands, Mesh, Name, ResMut, Vec2, Vec3},
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 
@@ -52,12 +52,15 @@ pub fn setup_grass(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         }
     }
 
-    commands.spawn(WarblersExplicitBundle {
-        grass_mesh,
-        grass: Grass {
-            positions,
-            height: 0.3,
+    commands.spawn((
+        WarblersExplicitBundle {
+            grass_mesh,
+            grass: Grass {
+                positions,
+                height: 0.3,
+            },
+            ..default()
         },
-        ..default()
-    });
+        Name::new("Grass"),
+    ));
 }

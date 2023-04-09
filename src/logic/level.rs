@@ -190,6 +190,9 @@ pub fn spawn_level(
                 commands.spawn(Name::from("South face")).id(),
             ),
         ]);
+        for face_entity in face_entities.values() {
+            commands.entity(pillar_entity).add_child(*face_entity);
+        }
 
         let mut unpowered_pylons: HashMap<FaceDirection, Vec<Entity>> = HashMap::from([
             (FaceDirection::East, vec![]),
@@ -259,7 +262,6 @@ pub fn spawn_level(
                 },
                 tiles: face_tiles,
             });
-            commands.entity(pillar_entity).add_child(face_entity);
 
             let face_climbers_count = face.climbers.len();
             let pylons_delta = pillar.w as f32 * TILE_SIZE / (face_climbers_count + 1) as f32;

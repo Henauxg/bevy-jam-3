@@ -7,8 +7,8 @@ use bevy::{
     input::common_conditions::input_toggle_active,
     prelude::{
         default, shape, App, Assets, Color, Commands, CoreSchedule, EventReader, EventWriter,
-        IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, PbrBundle, PluginGroup, Quat, Res,
-        ResMut, StandardMaterial, Transform, Vec3,
+        Input, IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name, PbrBundle, PluginGroup,
+        Quat, Res, ResMut, StandardMaterial, Transform, Vec3,
     },
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
@@ -74,6 +74,18 @@ pub fn exit_on_window_close_system(
     }
 }
 
+fn skip_level(mut level_events: EventWriter<LevelEvent>, keyboard_input: Res<Input<KeyCode>>) {
+    if keyboard_input.just_pressed(KeyCode::N) {
+        level_events.send(LevelEvent::LoadNext);
+    }
+}
+
+fn restart_level(mut level_events: EventWriter<LevelEvent>, keyboard_input: Res<Input<KeyCode>>) {
+    if keyboard_input.just_pressed(KeyCode::R) {
+        level_events.send(LevelEvent::Reload);
+    }
+}
+
 fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -95,17 +107,20 @@ fn setup_scene(
     // });
 
     // Ground TODO : move to level specific
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Circle::new(20.))),
-        material: materials.add(StandardMaterial {
-            base_color: Color::DARK_GREEN,
-            // unlit: true,
-            // cull_mode: None,
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Circle::new(20.))),
+            material: materials.add(StandardMaterial {
+                base_color: Color::DARK_GREEN,
+                // unlit: true,
+                // cull_mode: None,
+                ..default()
+            }),
+            transform: Transform::from_rotation(Quat::from_axis_angle(Vec3::X, -1. * PI / 2.)),
             ..default()
-        }),
-        transform: Transform::from_rotation(Quat::from_axis_angle(Vec3::X, -1. * PI / 2.)),
-        ..default()
-    });
+        },
+        Name::new("Ground"),
+    ));
 
     commands.insert_resource(DefaultHighlighting {
         hovered: assets.movable_rod_highlight_mat.clone(),
@@ -155,14 +170,16 @@ fn main() {
     app.add_system(handle_picking_events)
         .add_system(update_climbers.in_schedule(CoreSchedule::FixedUpdate))
         .add_system(level_event_handler)
-        .add_system(exit_on_window_close_system);
+        .add_system(exit_on_window_close_system)
+        .add_system(restart_level);
 
     #[cfg(debug_assertions)]
     {
         app.add_plugin(WorldInspectorPlugin::new().run_if(input_toggle_active(true, KeyCode::F2)))
             .add_plugin(EguiInputBlockerPlugin)
             .add_plugin(FrameTimeDiagnosticsPlugin::default())
-            .add_system(display_stats_ui.run_if(input_toggle_active(true, KeyCode::F3)));
+            .add_system(display_stats_ui.run_if(input_toggle_active(true, KeyCode::F3)))
+            .add_system(skip_level);
     }
 
     app.run();
