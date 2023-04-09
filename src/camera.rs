@@ -138,7 +138,7 @@ pub fn control_system(
         match event {
             ControlEvent::Orbit(delta) => {
                 look_angles.add_yaw(dt * -delta.x);
-                look_angles.add_pitch(dt * delta.y);
+                look_angles.set_pitch((look_angles.get_pitch() + dt * delta.y).max(0.));
             }
             ControlEvent::TranslateTarget(delta) => {
                 let right_dir = scene_transform.rotation * -Vec3::X;
