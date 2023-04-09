@@ -158,10 +158,10 @@ pub fn test_level_data() -> LevelData {
 
 pub fn level_1() -> LevelData {
     LevelData {
-        name: "level_1".to_string(),
+        name: "Summer I".to_string(),
         pillars: vec![PillarData {
             w: 5,
-            h: 5,
+            h: 7,
             x: 0.,
             z: 0.,
             faces: HashMap::from([
@@ -170,35 +170,19 @@ pub fn level_1() -> LevelData {
                     FaceData {
                         tiles: vec![
                             TileData {
-                                i: 0,
-                                j: 0,
-                                kind: TileDataType::StaticRod,
-                            },
-                            TileData {
                                 i: 1,
-                                j: 1,
-                                kind: TileDataType::MovableRod,
-                            },
-                            TileData {
-                                i: 3,
                                 j: 3,
                                 kind: TileDataType::StaticRod,
                             },
                             TileData {
                                 i: 4,
-                                j: 4,
-                                kind: TileDataType::MovableRod,
-                            },
-                            TileData {
-                                i: 4,
                                 j: 6,
-                                kind: TileDataType::MovableRod,
+                                kind: TileDataType::StaticRod,
                             },
                         ],
                         climbers: vec![ClimberData {
-                            tile_i: 0,
-                            tile_j: 0,
-                            // direction: ClimberDirection::Increasing,
+                            tile_i: 1,
+                            tile_j: 3,
                         }],
                     },
                 ),
@@ -207,19 +191,9 @@ pub fn level_1() -> LevelData {
                     FaceData {
                         tiles: vec![
                             TileData {
-                                i: 0,
-                                j: 0,
-                                kind: TileDataType::StaticRod,
-                            },
-                            TileData {
                                 i: 2,
-                                j: 2,
+                                j: 4,
                                 kind: TileDataType::MovableRod,
-                            },
-                            TileData {
-                                i: 3,
-                                j: 3,
-                                kind: TileDataType::StaticRod,
                             },
                             TileData {
                                 i: 3,
@@ -227,11 +201,7 @@ pub fn level_1() -> LevelData {
                                 kind: TileDataType::MovableRod,
                             },
                         ],
-                        climbers: vec![ClimberData {
-                            tile_i: 0,
-                            tile_j: 0,
-                            // direction: ClimberDirection::Increasing,
-                        }],
+                        climbers: vec![],
                     },
                 ),
             ]),
@@ -247,10 +217,10 @@ pub fn level_1() -> LevelData {
 
 pub fn level_2() -> LevelData {
     LevelData {
-        name: "level_2".to_string(),
+        name: "Summer II".to_string(),
         pillars: vec![PillarData {
             w: 5,
-            h: 8,
+            h: 7,
             x: 0.,
             z: 0.,
             faces: HashMap::from([
@@ -259,54 +229,7 @@ pub fn level_2() -> LevelData {
                     FaceData {
                         tiles: vec![
                             TileData {
-                                i: 0,
-                                j: 0,
-                                kind: TileDataType::StaticRod,
-                            },
-                            TileData {
                                 i: 1,
-                                j: 1,
-                                kind: TileDataType::MovableRod,
-                            },
-                            TileData {
-                                i: 3,
-                                j: 3,
-                                kind: TileDataType::StaticRod,
-                            },
-                            TileData {
-                                i: 4,
-                                j: 4,
-                                kind: TileDataType::MovableRod,
-                            },
-                            TileData {
-                                i: 4,
-                                j: 6,
-                                kind: TileDataType::MovableRod,
-                            },
-                        ],
-                        climbers: vec![ClimberData {
-                            tile_i: 0,
-                            tile_j: 0,
-                            // direction: ClimberDirection::Increasing,
-                        }],
-                    },
-                ),
-                (
-                    FaceDirection::East,
-                    FaceData {
-                        tiles: vec![
-                            TileData {
-                                i: 0,
-                                j: 0,
-                                kind: TileDataType::StaticRod,
-                            },
-                            TileData {
-                                i: 2,
-                                j: 2,
-                                kind: TileDataType::MovableRod,
-                            },
-                            TileData {
-                                i: 3,
                                 j: 3,
                                 kind: TileDataType::StaticRod,
                             },
@@ -315,11 +238,36 @@ pub fn level_2() -> LevelData {
                                 j: 5,
                                 kind: TileDataType::MovableRod,
                             },
+                            TileData {
+                                i: 4,
+                                j: 6,
+                                kind: TileDataType::StaticRod,
+                            },
                         ],
                         climbers: vec![ClimberData {
-                            tile_i: 0,
-                            tile_j: 0,
-                            // direction: ClimberDirection::Increasing,
+                            tile_i: 1,
+                            tile_j: 3,
+                        }],
+                    },
+                ),
+                (
+                    FaceDirection::East,
+                    FaceData {
+                        tiles: vec![
+                            TileData {
+                                i: 2,
+                                j: 4,
+                                kind: TileDataType::MovableRod,
+                            },
+                            TileData {
+                                i: 4,
+                                j: 6,
+                                kind: TileDataType::StaticRod,
+                            },
+                        ],
+                        climbers: vec![ClimberData {
+                            tile_i: 2,
+                            tile_j: 4,
                         }],
                     },
                 ),
