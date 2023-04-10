@@ -16,7 +16,9 @@ use smooth_bevy_cameras::{
 };
 
 use crate::{
-    assets::DEPRECATED_HALF_PILLAR_HEIGHT, debug::EguiBlockInputState, CAMERA_CLEAR_COLOR,
+    assets::{DEPRECATED_AVERAGE_PILLAR_HEIGHT, DEPRECATED_HALF_AVERAGE_PILLAR_HEIGHT},
+    debug::EguiBlockInputState,
+    CAMERA_CLEAR_COLOR,
 };
 
 pub fn setup_camera(mut commands: Commands) {
@@ -51,8 +53,8 @@ pub fn setup_camera(mut commands: Commands) {
                 mouse_rotate_sensitivity: Vec2::splat(0.2),
                 ..default()
             },
-            Vec3::new(3.0, DEPRECATED_HALF_PILLAR_HEIGHT, -20.0),
-            Vec3::new(0., DEPRECATED_HALF_PILLAR_HEIGHT, 0.),
+            Vec3::new(3.0, DEPRECATED_AVERAGE_PILLAR_HEIGHT + 3., -8.0),
+            Vec3::new(0., DEPRECATED_HALF_AVERAGE_PILLAR_HEIGHT, 0.),
             Vec3::Y,
         ))
         .insert(PickingCameraBundle::default());
@@ -87,6 +89,10 @@ pub fn camera_input_map(
     }
 
     if mouse_buttons.pressed(MouseButton::Right) {
+        events.send(orbit::ControlEvent::Orbit(
+            mouse_rotate_sensitivity * cursor_delta,
+        ));
+    } else if mouse_buttons.pressed(MouseButton::Left) {
         events.send(orbit::ControlEvent::Orbit(
             mouse_rotate_sensitivity * cursor_delta,
         ));
@@ -138,7 +144,7 @@ pub fn control_system(
         match event {
             ControlEvent::Orbit(delta) => {
                 look_angles.add_yaw(dt * -delta.x);
-                look_angles.set_pitch((look_angles.get_pitch() + dt * delta.y).max(0.));
+                // look_angles.set_pitch((look_angles.get_pitch() + dt * delta.y).max(0.));
             }
             ControlEvent::TranslateTarget(delta) => {
                 let right_dir = scene_transform.rotation * -Vec3::X;
