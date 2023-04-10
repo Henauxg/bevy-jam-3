@@ -21,7 +21,7 @@ use bevy_mod_picking::{DefaultHighlighting, DefaultPickingPlugins};
 use bevy_tweening::TweeningPlugin;
 use camera::{setup_camera, CustomOrbitCameraPlugin};
 
-use data::{level_1, level_2, test_level_data, LevelData};
+use data::{level_1, level_2, level_3, test_level_data, LevelData};
 use debug::display_stats_ui;
 use grass::setup_grass;
 use logic::{
@@ -253,7 +253,7 @@ fn main() {
     .add_plugins(DefaultPickingPlugins)
     .add_plugin(WarblersPlugin);
 
-    let mut level_builders: Vec<fn() -> LevelData> = vec![level_1, level_2];
+    let mut level_builders: Vec<fn() -> LevelData> = vec![level_1, level_2, level_3];
     #[cfg(debug_assertions)]
     {
         level_builders.push(test_level_data);
