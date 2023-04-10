@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 use assets::GameAssets;
 use bevy::{
@@ -18,7 +18,7 @@ use bevy::{
 };
 
 use bevy_mod_picking::{DefaultHighlighting, DefaultPickingPlugins};
-use bevy_tweening::TweeningPlugin;
+use bevy_tweening::{lens::TextColorLens, Animator, EaseFunction, Tween, TweeningPlugin};
 use camera::{setup_camera, CustomOrbitCameraPlugin};
 
 use data::{level_1, level_2, level_3, test_level_data, LevelData};
@@ -138,6 +138,17 @@ fn setup_scene(
     //     transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
     //     ..default()
     // });
+    // Dummy tween
+    let tween = Tween::new(
+        EaseFunction::QuadraticInOut,
+        Duration::from_secs(1),
+        TextColorLens {
+            start: Color::WHITE,
+            end: Color::WHITE,
+            section: 0,
+        },
+    )
+    .with_repeat_count(0);
 
     let text_style = TextStyle {
         font: assets.font.clone(),
@@ -170,6 +181,7 @@ fn setup_scene(
                     ..default()
                 }),
                 GameOverText,
+                Animator::new(tween),
             ));
             parent.spawn((
                 TextBundle::from_sections([TextSection::new("LevelName", text_style)]).with_style(
@@ -220,13 +232,26 @@ fn setup_scene(
 }
 
 fn hide_gameover_ui(mut game_over_ui: Query<&mut Visibility, With<GameOverText>>) {
-    let mut ui = game_over_ui.single_mut();
-    *ui = Visibility::Hidden;
+    let mut visibility = game_over_ui.single_mut();
+    *visibility = Visibility::Hidden;
 }
 
-fn show_gameover_ui(mut game_over_ui: Query<&mut Visibility, With<GameOverText>>) {
-    let mut ui = game_over_ui.single_mut();
-    *ui = Visibility::Visible;
+fn show_gameover_ui(
+    mut game_over_ui: Query<(&mut Visibility, &mut Animator<Text>), With<GameOverText>>,
+) {
+    let (mut visibility, mut animator) = game_over_ui.single_mut();
+    *visibility = Visibility::Visible;
+
+    let tween = Tween::new(
+        EaseFunction::ExponentialInOut,
+        Duration::from_millis(1000),
+        TextColorLens {
+            start: Color::WHITE.with_a(0.),
+            end: Color::WHITE.with_a(1.),
+            section: 0,
+        },
+    );
+    animator.set_tweenable(tween);
 }
 
 fn main() {
