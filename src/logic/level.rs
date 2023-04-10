@@ -406,7 +406,7 @@ pub fn spawn_level(
                         + HALF_ROD_WIDTH
                         + CLIMBER_RADIUS
                         + CLIMBER_LEVITATE_DISTANCE,
-                    climber.tile_i as f32 * TILE_SIZE - pillar_half_width + HALF_VISIBLE_ROD_LENGTH,
+                    (climber.tile_i as f32) * TILE_SIZE - pillar_half_width + HALF_TILE_SIZE,
                 );
                 commands.entity(level_entity).add_child(climber_entity);
             }
