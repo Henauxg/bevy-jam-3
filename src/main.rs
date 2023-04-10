@@ -98,7 +98,7 @@ fn handle_restart_key(
     mut level_events: EventWriter<LevelEvent>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::R) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
         level_events.send(LevelEvent::Reload);
     }
 }
@@ -141,7 +141,7 @@ fn setup_scene(
 
     let text_style = TextStyle {
         font: assets.font.clone(),
-        font_size: 35.0,
+        font_size: 45.0,
         color: Color::WHITE,
     };
     commands
@@ -157,14 +157,14 @@ fn setup_scene(
         .with_children(|parent| {
             parent.spawn((
                 TextBundle::from_sections([TextSection::new(
-                    "A climber has fallen. Press R to restart.",
+                    "A climber has fallen. Press Space to restart.",
                     text_style.clone(),
                 )])
                 .with_style(Style {
                     position_type: PositionType::Absolute,
                     justify_content: JustifyContent::Center,
                     position: UiRect {
-                        bottom: Val::Px(55.0),
+                        bottom: Val::Px(85.0),
                         ..default()
                     },
                     ..default()
