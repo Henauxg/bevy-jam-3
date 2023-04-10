@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 
-use bevy::prelude::{
-    default, shape, Assets, Commands, Component, Entity, Mesh, Name, PbrBundle, Res, ResMut,
-    Transform, Vec3,
+use bevy::{
+    prelude::{
+        default, shape, Assets, Commands, Component, Entity, Mesh, Name, PbrBundle, Res, ResMut,
+        Transform, Vec3,
+    },
+    ui::{FocusPolicy, Interaction},
 };
 
 use crate::{
@@ -73,6 +76,8 @@ pub fn spawn_pillar(
                 ..default()
             },
             Name::from("Pillar"),
+            FocusPolicy::Block,
+            Interaction::default(),
         ))
         .id()
 }

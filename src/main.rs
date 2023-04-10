@@ -6,12 +6,13 @@ use bevy::{
     diagnostic::FrameTimeDiagnosticsPlugin,
     input::common_conditions::input_toggle_active,
     prelude::{
-        default, shape, Added, App, Assets, Color, Commands, Component, CoreSchedule, EventReader,
-        EventWriter, Input, IntoSystemAppConfig, IntoSystemConfig, KeyCode, Mesh, Name, PbrBundle,
-        PluginGroup, Quat, Query, Res, ResMut, StandardMaterial, TextBundle, Transform, Vec3, With,
+        default, in_state, shape, Added, App, Assets, BuildChildren, Color, Commands, Component,
+        CoreSchedule, EventReader, EventWriter, Input, IntoSystemAppConfig, IntoSystemConfig,
+        KeyCode, Mesh, Name, NodeBundle, OnEnter, OnUpdate, PbrBundle, PluginGroup, Quat, Query,
+        Res, ResMut, StandardMaterial, States, TextBundle, Transform, Vec3, Visibility, With,
     },
     text::{Text, TextSection, TextStyle},
-    ui::{PositionType, Style, UiRect, Val},
+    ui::{AlignItems, JustifyContent, PositionType, Size, Style, UiRect, Val},
     window::{PresentMode, Window, WindowCloseRequested, WindowPlugin},
     DefaultPlugins,
 };
@@ -24,11 +25,14 @@ use data::{level_1, level_2, test_level_data, LevelData};
 use debug::display_stats_ui;
 use grass::setup_grass;
 use logic::{
-    climber::update_climbers,
+    climber::{update_climbers, ClimberEvent},
     face::Face,
-    handle_picking_events,
-    level::{level_event_handler, spawn_level, GameLevels, LevelEvent, LevelName},
+    handle_win_pylon_pick_events,
+    level::{
+        climber_event_handler, level_event_handler, spawn_level, GameLevels, LevelEvent, LevelName,
+    },
     pillar::Pillar,
+    rod::handle_movable_rod_picking_events,
     Pylon, TilePosition, TileType,
 };
 use smooth_bevy_cameras::LookTransformPlugin;
@@ -47,6 +51,14 @@ mod logic;
 
 #[cfg(debug_assertions)]
 mod debug;
+
+#[derive(Default, Clone, Eq, PartialEq, Debug, Hash, States)]
+pub enum GameState {
+    #[default]
+    Playing,
+    Lost,
+    Won,
+}
 
 // THEMES
 
@@ -82,7 +94,10 @@ fn skip_level(mut level_events: EventWriter<LevelEvent>, keyboard_input: Res<Inp
     }
 }
 
-fn restart_level(mut level_events: EventWriter<LevelEvent>, keyboard_input: Res<Input<KeyCode>>) {
+fn handle_restart_key(
+    mut level_events: EventWriter<LevelEvent>,
+    keyboard_input: Res<Input<KeyCode>>,
+) {
     if keyboard_input.just_pressed(KeyCode::R) {
         level_events.send(LevelEvent::Reload);
     }
@@ -100,6 +115,9 @@ fn handle_new_levels(
         text.sections.first_mut().unwrap().value = loaded_level.0.clone();
     }
 }
+
+#[derive(Component, Clone, Debug)]
+struct GameOverText;
 
 fn setup_scene(
     mut commands: Commands,
@@ -122,26 +140,39 @@ fn setup_scene(
     // });
 
     let text_style = TextStyle {
-        // font: asset_server.load(REGULAR_FONT),
         font: assets.font.clone(),
-        font_size: 25.0,
+        font_size: 35.0,
         color: Color::WHITE,
     };
-    commands.spawn((
-        TextBundle::from_sections([TextSection::new("'R': restart", text_style)]).with_style(
-            Style {
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    bottom: Val::Px(5.0),
-                    left: Val::Px(5.0),
-                    ..default()
-                },
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                size: Size::width(Val::Percent(100.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 ..default()
             },
-        ),
-    ));
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn((
+                TextBundle::from_sections([TextSection::new(
+                    "A climber has fallen. Press R to restart.",
+                    text_style.clone(),
+                )])
+                .with_style(Style {
+                    position_type: PositionType::Absolute,
+                    justify_content: JustifyContent::Center,
+                    position: UiRect {
+                        bottom: Val::Px(55.0),
+                        ..default()
+                    },
+                    ..default()
+                }),
+                GameOverText,
+            ));
+        });
     let text_style = TextStyle {
-        // font: asset_server.load(REGULAR_FONT),
         font: assets.font.clone(),
         font_size: 30.0,
         color: Color::WHITE,
@@ -191,6 +222,16 @@ fn setup_scene(
     ));
 }
 
+fn hide_gameover_ui(mut game_over_ui: Query<&mut Visibility, With<GameOverText>>) {
+    let mut ui = game_over_ui.single_mut();
+    *ui = Visibility::Hidden;
+}
+
+fn show_gameover_ui(mut game_over_ui: Query<&mut Visibility, With<GameOverText>>) {
+    let mut ui = game_over_ui.single_mut();
+    *ui = Visibility::Visible;
+}
+
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -220,18 +261,28 @@ fn main() {
     app.init_resource::<GameAssets>()
         .insert_resource(GameLevels::new(level_builders));
 
-    app.add_event::<LevelEvent>();
+    app.add_state::<GameState>()
+        .add_event::<LevelEvent>()
+        .add_event::<ClimberEvent>();
 
     app.add_startup_system(setup_camera)
         .add_startup_system(setup_scene)
         .add_startup_system(setup_grass);
 
-    app.add_system(handle_picking_events)
-        .add_system(update_climbers.in_schedule(CoreSchedule::FixedUpdate))
-        .add_system(level_event_handler)
+    app.add_system(level_event_handler)
+        .add_system(handle_restart_key)
+        .add_system(handle_new_levels)
         .add_system(exit_on_window_close_system)
-        .add_system(restart_level)
-        .add_system(handle_new_levels);
+        .add_system(climber_event_handler);
+    app.add_system(hide_gameover_ui.in_schedule(OnEnter(GameState::Playing)))
+        .add_system(show_gameover_ui.in_schedule(OnEnter(GameState::Lost)))
+        .add_system(handle_movable_rod_picking_events.in_set(OnUpdate(GameState::Playing)))
+        .add_system(
+            update_climbers
+                .in_schedule(CoreSchedule::FixedUpdate)
+                .run_if(in_state(GameState::Playing)),
+        )
+        .add_system(handle_win_pylon_pick_events.in_set(OnUpdate(GameState::Won)));
 
     #[cfg(debug_assertions)]
     {

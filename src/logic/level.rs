@@ -1,29 +1,35 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::{
         default, shape, Assets, BuildChildren, Bundle, Color, Commands, Component,
         DespawnRecursiveExt, DirectionalLight, DirectionalLightBundle, Entity, EulerRot,
-        EventReader, Mesh, Name, PbrBundle, Quat, Res, ResMut, Resource, SpatialBundle, Transform,
-        Vec3,
+        EventReader, Mesh, Name, NextState, PbrBundle, Quat, Query, Res, ResMut, Resource,
+        SpatialBundle, Transform, Vec3, With,
     },
+    ui::{FocusPolicy, Interaction},
 };
+use bevy_mod_picking::{highlight::Highlight, Hover, PickableMesh};
+use bevy_tweening::{lens::TransformPositionLens, Animator, EaseFunction, Tween};
 
 use crate::{
     assets::{
         GameAssets, CLIMBER_LEVITATE_DISTANCE, CLIMBER_RADIUS, HALF_ROD_WIDTH, HALF_TILE_SIZE,
-        HALF_VISIBLE_ROD_LENGTH, MOVABLE_ROD_MOVEMENT_AMPLITUDE, PYLON_HORIZONTAL_DELTA, TILE_SIZE,
+        HALF_VISIBLE_ROD_LENGTH, MOVABLE_ROD_MOVEMENT_AMPLITUDE, PYLON_HEIGHT,
+        PYLON_HORIZONTAL_DELTA, PYLON_RADIUS, TILE_SIZE, WIN_PYLON_ANIMATION_DURATION,
+        WIN_PYLON_HEIGHT,
     },
     data::{FaceDirection, FaceSize, LevelData, TileDataType},
+    GameState,
 };
 
 use super::{
-    climber::spawn_climber,
+    climber::{spawn_climber, ClimberEvent},
     face::Face,
     pillar::{spawn_pillar, Pillar},
     rod::{spawn_movable_rod, spawn_static_rod},
-    Pylon, TilePosition, TileType,
+    Pylon, TilePosition, TileType, WinPylon,
 };
 
 #[derive(Component, Default)]
@@ -59,6 +65,17 @@ pub struct GameLevels {
     level_builders: Vec<fn() -> LevelData>,
 }
 
+#[derive(Resource)]
+pub struct LevelCompletion {
+    pub pylons_count: u8,
+    pub powered_pylons_count: u8,
+}
+impl LevelCompletion {
+    pub fn is_won(&self) -> bool {
+        self.powered_pylons_count >= self.pylons_count
+    }
+}
+
 impl GameLevels {
     pub fn new(level_builders: Vec<fn() -> LevelData>) -> Self {
         Self {
@@ -80,9 +97,9 @@ pub fn level_event_handler(
     mut level_events: EventReader<LevelEvent>,
     mut commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
-    // materials: ResMut<Assets<StandardMaterial>>,
     mut game_levels: ResMut<GameLevels>,
     assets: Res<GameAssets>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
     for event in level_events.iter() {
         match event {
@@ -101,11 +118,44 @@ pub fn level_event_handler(
                     assets,
                     // materials,
                 ));
+                next_state.set(GameState::Playing);
             }
         }
         break;
     }
     level_events.clear();
+}
+
+pub fn climber_event_handler(
+    mut commands: Commands,
+    mut climber_events: EventReader<ClimberEvent>,
+    mut level_completion: ResMut<LevelCompletion>,
+    mut win_pylon: Query<(&mut Transform, Entity), With<WinPylon>>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    for event in climber_events.iter() {
+        match event {
+            ClimberEvent::ReachedTop => {
+                level_completion.powered_pylons_count += 1;
+                if level_completion.is_won() {
+                    let (win_pylon_transform, win_pylon_entity) = win_pylon.single_mut();
+                    let pos = win_pylon_transform.translation;
+                    let tween = Tween::new(
+                        EaseFunction::QuadraticInOut,
+                        Duration::from_millis(WIN_PYLON_ANIMATION_DURATION),
+                        TransformPositionLens {
+                            start: pos,
+                            end: Vec3::new(pos.x, pos.y + TILE_SIZE, pos.z),
+                        },
+                    );
+                    commands
+                        .entity(win_pylon_entity)
+                        .insert(Animator::new(tween));
+                    next_state.set(GameState::Won);
+                }
+            }
+        }
+    }
 }
 
 pub fn spawn_level(
@@ -178,6 +228,36 @@ pub fn spawn_level(
         let pillar_half_width = pillar.w as f32 * TILE_SIZE / 2.;
         let pillar_half_height = pillar.h as f32 * TILE_SIZE / 2.;
 
+        let win_pylon = commands
+            .spawn((
+                PbrBundle {
+                    mesh: meshes.add(
+                        shape::Cylinder {
+                            radius: pillar_half_width / 3.,
+                            height: WIN_PYLON_HEIGHT,
+                            resolution: 24,
+                            segments: 1,
+                        }
+                        .into(),
+                    ),
+                    material: assets.climber_mat.clone(),
+                    transform: Transform::from_translation(Vec3::new(
+                        0.,
+                        pillar_half_height - 1.05 * WIN_PYLON_HEIGHT / 2.,
+                        0.,
+                    )),
+                    ..default()
+                },
+                WinPylon,
+                Highlight::default(),
+                Hover::default(),
+                FocusPolicy::Block,
+                Interaction::default(),
+                PickableMesh::default(),
+            ))
+            .id();
+        commands.entity(pillar_entity).add_child(win_pylon);
+
         let face_entities = HashMap::from([
             (
                 FaceDirection::West,
@@ -206,6 +286,7 @@ pub fn spawn_level(
             (FaceDirection::North, vec![]),
             (FaceDirection::South, vec![]),
         ]);
+        let mut unpowered_pylons_count: u8 = 0;
         for (face_direction, face) in pillar.faces.iter() {
             let &face_entity = face_entities.get(&face_direction).unwrap();
             let opposite_face_entity = face_entities.get(&face_direction.get_opposite()).unwrap();
@@ -274,7 +355,7 @@ pub fn spawn_level(
             for (climber_idx, climber) in face.climbers.iter().enumerate() {
                 // TODO Spawn pylon
                 let pylon_offset = pylons_delta * (climber_idx + 1) as f32;
-                let pylon_y = pillar_half_height;
+                let pylon_y = pillar_half_height - 0.8 * PYLON_HEIGHT / 2.;
                 let (pylon_x, pylon_z) = match face_direction {
                     FaceDirection::West | FaceDirection::East => (
                         factor * (pillar_half_width - PYLON_HORIZONTAL_DELTA),
@@ -290,8 +371,8 @@ pub fn spawn_level(
                         PbrBundle {
                             mesh: meshes.add(
                                 shape::Cylinder {
-                                    radius: 0.15,
-                                    height: 0.1,
+                                    radius: PYLON_RADIUS,
+                                    height: PYLON_HEIGHT,
                                     resolution: 16,
                                     segments: 1,
                                 }
@@ -310,6 +391,7 @@ pub fn spawn_level(
                     .get_mut(&face_direction)
                     .unwrap()
                     .push(unpowered_pylon);
+                unpowered_pylons_count += 1;
                 commands.entity(pillar_entity).add_child(unpowered_pylon);
 
                 let climber_entity = spawn_climber(
@@ -332,6 +414,11 @@ pub fn spawn_level(
         commands
             .entity(pillar_entity)
             .insert(Pillar { unpowered_pylons });
+
+        commands.insert_resource(LevelCompletion {
+            pylons_count: unpowered_pylons_count,
+            powered_pylons_count: 0,
+        });
     }
 
     level_entity

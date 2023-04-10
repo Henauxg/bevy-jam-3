@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use bevy::prelude::{
-    default, info, BuildChildren, Commands, Component, Entity, Handle, Name, PbrBundle, Query, Res,
-    StandardMaterial, Transform, Vec3, Without,
+    default, info, BuildChildren, Commands, Component, Entity, EventWriter, Handle, Name,
+    NextState, PbrBundle, Query, Res, ResMut, StandardMaterial, Transform, Vec3, Without,
 };
 use bevy_tweening::{
     lens::{TransformPositionLens, TransformScaleLens},
@@ -10,9 +10,12 @@ use bevy_tweening::{
 };
 
 use crate::{
-    assets::{GameAssets, CLIMBER_LEVITATE_DISTANCE, CLIMBER_RADIUS, TILE_SIZE},
+    assets::{
+        GameAssets, CLIMBER_LEVITATE_DISTANCE, CLIMBER_RADIUS, PYLON_ANIMATION_DURATION,
+        PYLON_HEIGHT, PYLON_VERTICAL_MOVEMENT_AMPLITUDE,
+    },
     data::ClimberData,
-    Face, Pillar, Pylon,
+    Face, GameState, Pillar, Pylon,
 };
 
 #[derive(Clone, Debug)]
@@ -20,6 +23,11 @@ pub struct ClimberPosition {
     pub face: Entity,
     pub i: u16,
     pub j: u16,
+}
+
+#[derive(Clone, Debug)]
+pub enum ClimberEvent {
+    ReachedTop,
 }
 
 #[derive(Clone, Debug)]
@@ -103,6 +111,8 @@ pub fn update_climbers(
         Without<Climber>,
     >,
     assets: Res<GameAssets>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut climber_events: EventWriter<ClimberEvent>,
 ) {
     for (mut transform, mut climber, mut animator, climber_entity) in climbers.iter_mut() {
         match &climber.state {
@@ -132,15 +142,14 @@ pub fn update_climbers(
                 }
             }
             ClimberState::Moving { to_tile: to } => {
-                // "Clean code"
                 if animator.tweenable().progress() >= 1. {
-                    info!("Climber movement done");
                     // TODO No tweening for pillars & climbers, animate according to fixed updates.
                     let face = faces
                         .get(to.face)
                         .expect("Climber does not appear to have a Face reference");
 
                     if to.j >= face.size.h - 1 {
+                        // TODO Move that code
                         let mut pillar = pillars.get_mut(climber.current_pillar).unwrap();
                         let pylon_entity = if let Some(same_face_pylon) =
                             pillar.get_pylon_from_face(&face.direction)
@@ -149,7 +158,7 @@ pub fn update_climbers(
                         } else {
                             pillar.pop_first_available_pylon().unwrap()
                         };
-                        // TODO Pylon as full cylinder
+
                         let (mut pylon, pylon_transform, mut mat_handle) =
                             pylons.get_mut(pylon_entity).unwrap();
                         pylon.powered = true;
@@ -158,17 +167,25 @@ pub fn update_climbers(
                         let pos = pylon_transform.translation;
                         let tween = Tween::new(
                             EaseFunction::QuadraticInOut,
-                            Duration::from_millis(3000),
+                            Duration::from_millis(PYLON_ANIMATION_DURATION),
                             TransformPositionLens {
                                 start: pos,
-                                end: Vec3::new(pos.x, pos.y + TILE_SIZE, pos.z),
+                                end: Vec3::new(
+                                    pos.x,
+                                    pos.y + PYLON_VERTICAL_MOVEMENT_AMPLITUDE,
+                                    pos.z,
+                                ),
                             },
                         );
                         commands.entity(pylon_entity).insert(Animator::new(tween));
-                        transform.translation =
-                            Vec3::new(0., CLIMBER_RADIUS + CLIMBER_LEVITATE_DISTANCE, 0.);
+                        transform.translation = Vec3::new(
+                            0.,
+                            PYLON_HEIGHT / 2. + CLIMBER_RADIUS + CLIMBER_LEVITATE_DISTANCE,
+                            0.,
+                        );
                         commands.entity(pylon_entity).add_child(climber_entity);
                         climber.state = ClimberState::Saved;
+                        climber_events.send(ClimberEvent::ReachedTop);
                     } else {
                         climber.state = ClimberState::Waiting {
                             on_tile: to.clone(),
@@ -186,7 +203,6 @@ pub fn update_climbers(
 
                 let (i, j) = face.get_tile_coords_from_pos(transform.translation);
                 if face.has_ground_on_tile(i, j) {
-                    info!("Climber landed on tile {} {}", i, j);
                     let landed_on = ClimberPosition {
                         face: *face_entity,
                         i,
@@ -201,14 +217,11 @@ pub fn update_climbers(
                 // If the ground is reached : dead
                 if transform.translation.y <= 0.0 {
                     climber.state = ClimberState::Dead;
+                    next_state.set(GameState::Lost);
                 }
             }
-            ClimberState::Saved => {
-                // TODO Win
-            }
-            ClimberState::Dead => {
-                // TODO Lost
-            }
+            ClimberState::Saved => {}
+            ClimberState::Dead => {}
         }
     }
 }
