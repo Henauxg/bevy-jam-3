@@ -7,6 +7,7 @@ use bevy::{
     },
     ui::{FocusPolicy, Interaction},
 };
+use bevy_mod_picking::PickableMesh;
 
 use crate::{
     assets::{GameAssets, TILE_SIZE},
@@ -78,6 +79,7 @@ pub fn spawn_pillar(
             Name::from("Pillar"),
             FocusPolicy::Block,
             Interaction::default(),
+            PickableMesh::default(),
         ))
         .id()
 }
