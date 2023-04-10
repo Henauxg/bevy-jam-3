@@ -48,23 +48,21 @@ pub fn handle_movable_rod_picking_events(
                 if let Ok((rod_transform, mut rod_animator, mut rod)) =
                     rods_animators.get_mut(*entity)
                 {
-                    // TODO Add a criteria here
-
-                    // Immediately set void for this face
-                    let mut face = faces
-                        .get_mut(rod.face)
-                        .expect("Rod does not appear to have a Face reference");
-                    face.remove_tile_at(rod.position);
-
-                    let mut opposite_face = faces
-                        .get_mut(rod.opposite_face)
-                        .expect("Rod does not appear to have a Face reference");
-                    // TODO set MovingRod on the other face after a delay (animation duration / 2)
-                    opposite_face.set_tile_at(rod.position, TileType::MovableRod);
-
-                    rod.swap_face();
-
                     if rod_animator.tweenable().progress() >= 1.0 {
+                        // Immediately set void for this face
+                        let mut face = faces
+                            .get_mut(rod.face)
+                            .expect("Rod does not appear to have a Face reference");
+                        face.remove_tile_at(rod.position);
+
+                        let mut opposite_face = faces
+                            .get_mut(rod.opposite_face)
+                            .expect("Rod does not appear to have a Face reference");
+                        // TODO set MovingRod on the other face after a delay (animation duration / 2)
+                        opposite_face.set_tile_at(rod.position, TileType::MovableRod);
+
+                        rod.swap_face();
+
                         // TODO Use another cirteria
                         let tween = Tween::new(
                             EaseFunction::QuadraticInOut,
