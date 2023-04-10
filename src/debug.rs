@@ -3,7 +3,6 @@ use bevy::{
     input::InputSystem,
     prelude::{
         App, CoreSet, Input, IntoSystemConfig, KeyCode, MouseButton, Plugin, Query, Res, ResMut,
-        Resource,
     },
 };
 
@@ -12,11 +11,7 @@ use bevy_egui::{
     EguiContextQuery, EguiSet,
 };
 
-#[derive(Resource, Default)]
-pub struct EguiBlockInputState {
-    pub wants_keyboard_input: bool,
-    pub wants_pointer_input: bool,
-}
+use crate::EguiBlockInputState;
 
 pub fn display_stats_ui(mut egui_context: Query<EguiContextQuery>, diagnostics: Res<Diagnostics>) {
     let mut context = egui_context.single_mut();

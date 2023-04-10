@@ -9,7 +9,8 @@ use bevy::{
         default, in_state, shape, Added, App, Assets, BuildChildren, Color, Commands, Component,
         CoreSchedule, EventReader, EventWriter, Input, IntoSystemAppConfig, IntoSystemConfig,
         KeyCode, Mesh, Name, NodeBundle, OnEnter, OnUpdate, PbrBundle, PluginGroup, Quat, Query,
-        Res, ResMut, StandardMaterial, States, TextBundle, Transform, Vec3, Visibility, With,
+        Res, ResMut, Resource, StandardMaterial, States, TextBundle, Transform, Vec3, Visibility,
+        With,
     },
     text::{Text, TextSection, TextStyle},
     ui::{AlignItems, JustifyContent, PositionType, Size, Style, UiRect, Val},
@@ -20,9 +21,7 @@ use bevy::{
 use bevy_mod_picking::{DefaultHighlighting, DefaultPickingPlugins};
 use bevy_tweening::{lens::TextColorLens, Animator, EaseFunction, Tween, TweeningPlugin};
 use camera::{setup_camera, CustomOrbitCameraPlugin};
-
 use data::{level_1, level_2, level_3, test_level_data, LevelData};
-use debug::display_stats_ui;
 use grass::setup_grass;
 use logic::{
     climber::{update_climbers, ClimberEvent},
@@ -36,12 +35,14 @@ use logic::{
     Pylon, TilePosition, TileType,
 };
 use smooth_bevy_cameras::LookTransformPlugin;
+use warbler_grass::warblers_plugin::WarblersPlugin;
 
 #[cfg(debug_assertions)]
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 #[cfg(debug_assertions)]
+use debug::display_stats_ui;
+#[cfg(debug_assertions)]
 use debug::EguiInputBlockerPlugin;
-use warbler_grass::warblers_plugin::WarblersPlugin;
 
 mod assets;
 mod camera;
@@ -51,6 +52,12 @@ mod logic;
 
 #[cfg(debug_assertions)]
 mod debug;
+
+#[derive(Resource, Default)]
+pub struct EguiBlockInputState {
+    pub wants_keyboard_input: bool,
+    pub wants_pointer_input: bool,
+}
 
 #[derive(Default, Clone, Eq, PartialEq, Debug, Hash, States)]
 pub enum GameState {

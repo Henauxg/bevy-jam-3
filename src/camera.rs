@@ -17,9 +17,10 @@ use smooth_bevy_cameras::{
 
 use crate::{
     assets::{DEPRECATED_AVERAGE_PILLAR_HEIGHT, DEPRECATED_HALF_AVERAGE_PILLAR_HEIGHT},
-    debug::EguiBlockInputState,
     CAMERA_CLEAR_COLOR,
 };
+
+use crate::EguiBlockInputState;
 
 pub fn setup_camera(mut commands: Commands) {
     commands
