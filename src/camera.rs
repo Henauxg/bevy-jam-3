@@ -160,7 +160,7 @@ pub fn control_system(
 
     look_angles.assert_not_looking_up();
 
-    let new_radius = (radius_scalar * transform.radius()).min(30.0).max(8.);
+    let new_radius = (radius_scalar * transform.radius()).min(15.0).max(8.);
     transform.eye = transform.target + new_radius * look_angles.unit_vector();
 }
 

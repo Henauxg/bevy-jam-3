@@ -27,8 +27,8 @@ fn custom_grass_mesh() -> Mesh {
 
 pub fn setup_grass(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.insert_resource(GrassConfiguration {
-        main_color: Color::rgb(0.2, 0.5, 0.0),   //205, 38, 255, 255
-        bottom_color: Color::rgb(0.1, 0.1, 0.0), //  25, 0, 12, 255
+        main_color: Color::rgb(0.68, 0.25, 0.77), //173, 63, 196, 255
+        bottom_color: Color::rgb(0.145, 0., 0.17), // 37, 0, 44, 255
         wind: Vec2::new(0.6, 0.6),
     });
 

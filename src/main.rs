@@ -21,7 +21,7 @@ use bevy::{
 use bevy_mod_picking::{DefaultHighlighting, DefaultPickingPlugins};
 use bevy_tweening::{lens::TextColorLens, Animator, EaseFunction, Tween, TweeningPlugin};
 use camera::{setup_camera, CustomOrbitCameraPlugin};
-use data::{level_1, level_2, level_3, test_level_data, LevelData};
+use data::{level_1, level_2, level_3, level_4, test_level_data, LevelData};
 use grass::setup_grass;
 use logic::{
     climber::{update_climbers, ClimberEvent},
@@ -81,7 +81,7 @@ pub enum GameState {
 
 // Fushia
 
-pub const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.25, 0.55, 0.92); // 0, 0, 28, 255
+pub const CAMERA_CLEAR_COLOR: Color = Color::rgb(0.56, 1., 0.98); // 144, 255, 253, 255
 
 const WINDOW_TITLE: &str = "Bevy-jam-3";
 
@@ -211,7 +211,9 @@ fn setup_scene(
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Circle::new(20.))),
             material: materials.add(StandardMaterial {
-                base_color: Color::DARK_GREEN,
+                base_color: Color::rgb(0.23, 0., 0.29), // 59, 0, 75, 255
+                metallic: 0.,
+                reflectance: 0.,
                 // unlit: true,
                 // cull_mode: None,
                 ..default()
