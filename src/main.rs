@@ -284,7 +284,7 @@ fn main() {
     .add_plugins(DefaultPickingPlugins)
     .add_plugin(WarblersPlugin);
 
-    let mut level_builders: Vec<fn() -> LevelData> = vec![level_1, level_2, level_3];
+    let mut level_builders: Vec<fn() -> LevelData> = vec![level_1, level_2, level_3, level_4];
     #[cfg(debug_assertions)]
     {
         level_builders.push(test_level_data);
