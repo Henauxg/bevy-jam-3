@@ -171,24 +171,21 @@ fn setup_scene(
                 }),
                 GameOverText,
             ));
+            parent.spawn((
+                TextBundle::from_sections([TextSection::new("LevelName", text_style)]).with_style(
+                    Style {
+                        position_type: PositionType::Absolute,
+                        justify_content: JustifyContent::Center,
+                        position: UiRect {
+                            top: Val::Px(15.0),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                ),
+                LevelNameUI,
+            ));
         });
-    let text_style = TextStyle {
-        font: assets.font.clone(),
-        font_size: 30.0,
-        color: Color::WHITE,
-    };
-    commands.spawn((
-        TextBundle::from_sections([TextSection::new("LevelName", text_style)]).with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
-                ..default()
-            },
-            ..default()
-        }),
-        LevelNameUI,
-    ));
 
     // Ground TODO : move to level specific
     commands.spawn((
