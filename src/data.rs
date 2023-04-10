@@ -384,11 +384,6 @@ pub fn level_4() -> LevelData {
                     FaceData {
                         tiles: vec![
                             TileData {
-                                i: 3,
-                                j: 2,
-                                kind: TileDataType::StaticRod,
-                            },
-                            TileData {
                                 i: 0,
                                 j: 5,
                                 kind: TileDataType::StaticRod,
@@ -434,21 +429,16 @@ pub fn level_4() -> LevelData {
                                 j: 2,
                                 kind: TileDataType::MovableRod,
                             },
-                            // TileData {
-                            //     i: 2,
-                            //     j: 4,
-                            //     kind: TileDataType::StaticRod,
-                            // },
-                            // TileData {
-                            //     i: 3,
-                            //     j: 5,
-                            //     kind: TileDataType::StaticRod,
-                            // },
-                            // TileData {
-                            //     i: 4,
-                            //     j: 6,
-                            //     kind: TileDataType::StaticRod,
-                            // },
+                            TileData {
+                                i: 3,
+                                j: 6,
+                                kind: TileDataType::StaticRod,
+                            },
+                            TileData {
+                                i: 4,
+                                j: 5,
+                                kind: TileDataType::StaticRod,
+                            },
                         ],
                         climbers: vec![
                             ClimberData {
