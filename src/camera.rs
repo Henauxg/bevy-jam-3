@@ -54,7 +54,7 @@ pub fn setup_camera(mut commands: Commands) {
                 mouse_rotate_sensitivity: Vec2::splat(0.2),
                 ..default()
             },
-            Vec3::new(3.0, DEPRECATED_AVERAGE_PILLAR_HEIGHT + 3., -8.0),
+            Vec3::new(3.0, DEPRECATED_AVERAGE_PILLAR_HEIGHT + 2., -8.0),
             Vec3::new(0., DEPRECATED_HALF_AVERAGE_PILLAR_HEIGHT, 0.),
             Vec3::Y,
         ))
