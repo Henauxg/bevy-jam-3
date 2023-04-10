@@ -306,7 +306,7 @@ pub fn spawn_level(
                 let tile_entity = match tile.kind {
                     // Relative to pillar position.
                     TileDataType::StaticRod => {
-                        face_tiles[tile.i as usize][tile.j as usize] = TileType::StaticRod;
+                        face_tiles[tile.i as usize][tile.j as usize] = TileType::StaticRod(false);
                         spawn_static_rod(
                             &mut commands,
                             &assets,
@@ -316,7 +316,7 @@ pub fn spawn_level(
                         )
                     }
                     TileDataType::MovableRod => {
-                        face_tiles[tile.i as usize][tile.j as usize] = TileType::MovableRod;
+                        face_tiles[tile.i as usize][tile.j as usize] = TileType::MovableRod(false);
                         spawn_movable_rod(
                             &mut commands,
                             &assets,
@@ -340,15 +340,6 @@ pub fn spawn_level(
                 0.,
                 pillar.z - pillar_half_width, // TODO North south
             );
-            commands.entity(face_entity).insert(Face {
-                origin: face_origin,
-                direction: face_direction.clone(),
-                size: FaceSize {
-                    w: pillar.w,
-                    h: pillar.h,
-                },
-                tiles: face_tiles,
-            });
 
             let face_climbers_count = face.climbers.len();
             let pylons_delta = pillar.w as f32 * TILE_SIZE / (face_climbers_count + 1) as f32;
@@ -409,7 +400,24 @@ pub fn spawn_level(
                     (climber.tile_i as f32) * TILE_SIZE - pillar_half_width + HALF_TILE_SIZE,
                 );
                 commands.entity(level_entity).add_child(climber_entity);
+
+                let tile_data = face_tiles[climber.tile_i as usize][climber.tile_j as usize];
+                face_tiles[climber.tile_i as usize][climber.tile_j as usize] = match tile_data {
+                    TileType::Void => TileType::Void,
+                    TileType::StaticRod(_) => TileType::StaticRod(true),
+                    TileType::MovableRod(_) => TileType::MovableRod(true),
+                };
             }
+
+            commands.entity(face_entity).insert(Face {
+                origin: face_origin,
+                direction: face_direction.clone(),
+                size: FaceSize {
+                    w: pillar.w,
+                    h: pillar.h,
+                },
+                tiles: face_tiles,
+            });
         }
         commands
             .entity(pillar_entity)

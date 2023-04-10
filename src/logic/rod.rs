@@ -59,7 +59,7 @@ pub fn handle_movable_rod_picking_events(
                             .get_mut(rod.opposite_face)
                             .expect("Rod does not appear to have a Face reference");
                         // TODO set MovingRod on the other face after a delay (animation duration / 2)
-                        opposite_face.set_tile_at(rod.position, TileType::MovableRod);
+                        opposite_face.set_tile_at(rod.position, TileType::MovableRod(false));
 
                         rod.swap_face();
 

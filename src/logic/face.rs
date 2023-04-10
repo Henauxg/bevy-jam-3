@@ -31,6 +31,19 @@ impl Face {
         self.tiles[i as usize][j as usize] != TileType::Void
     }
 
+    pub fn has_free_ground_on_tile(&self, i: u16, j: u16) -> bool {
+        if !self.is_valid(i, j) {
+            return false;
+        }
+        // self.tiles[i as usize][j as usize] != TileType::Void;
+
+        match self.tiles[i as usize][j as usize] {
+            TileType::Void => false,
+            TileType::StaticRod(occupied) => !occupied,
+            TileType::MovableRod(occupied) => !occupied,
+        }
+    }
+
     pub fn climber_get_pos_from_tile(&self, pos: &ClimberPosition) -> Vec3 {
         let factor = match self.direction {
             FaceDirection::West | FaceDirection::South => -1.,
@@ -56,7 +69,7 @@ impl Face {
         }
     }
 
-    pub fn get_next_tile_with_ground(
+    pub fn get_next_free_tile_with_ground(
         &self,
         tile: &ClimberPosition,
         // direction: &ClimberDirection,
@@ -66,7 +79,7 @@ impl Face {
             i: tile.i + 1,
             j: tile.j + 1,
         };
-        if self.has_ground_on_tile(next_tile_1.i, next_tile_1.j) {
+        if self.has_free_ground_on_tile(next_tile_1.i, next_tile_1.j) {
             return Some(next_tile_1);
         }
         if tile.i > 0 {
@@ -75,7 +88,7 @@ impl Face {
                 i: tile.i - 1,
                 j: tile.j + 1,
             };
-            if self.has_ground_on_tile(next_tile_2.i, next_tile_2.j) {
+            if self.has_free_ground_on_tile(next_tile_2.i, next_tile_2.j) {
                 return Some(next_tile_2);
             }
         }
@@ -100,5 +113,23 @@ impl Face {
             FaceDirection::North | FaceDirection::South => (relative.x / TILE_SIZE).trunc(),
         } as u16;
         (i, j)
+    }
+
+    pub(crate) fn set_free(&mut self, tile: &ClimberPosition) {
+        self.tiles[tile.i as usize][tile.j as usize] =
+            match self.tiles[tile.i as usize][tile.j as usize] {
+                TileType::Void => TileType::Void,
+                TileType::StaticRod(_) => TileType::StaticRod(false),
+                TileType::MovableRod(_) => TileType::MovableRod(false),
+            };
+    }
+
+    pub(crate) fn set_occupied(&mut self, tile: &ClimberPosition) {
+        self.tiles[tile.i as usize][tile.j as usize] =
+            match self.tiles[tile.i as usize][tile.j as usize] {
+                TileType::Void => TileType::Void,
+                TileType::StaticRod(_) => TileType::StaticRod(true),
+                TileType::MovableRod(_) => TileType::MovableRod(true),
+            };
     }
 }

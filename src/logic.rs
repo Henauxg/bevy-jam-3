@@ -18,8 +18,8 @@ pub struct TilePosition {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TileType {
     Void,
-    StaticRod,
-    MovableRod,
+    StaticRod(bool),
+    MovableRod(bool),
 }
 
 // #[derive(Clone, Debug)]

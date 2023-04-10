@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use bevy::prelude::{
-    default, info, BuildChildren, Commands, Component, Entity, EventWriter, Handle, Name,
-    NextState, PbrBundle, Query, Res, ResMut, StandardMaterial, Transform, Vec3, Without,
+    default, BuildChildren, Commands, Component, Entity, EventWriter, Handle, Name, NextState,
+    PbrBundle, Query, Res, ResMut, StandardMaterial, Transform, Vec3, Without,
 };
 use bevy_tweening::{
     lens::{TransformPositionLens, TransformScaleLens},
@@ -104,7 +104,7 @@ pub fn update_climbers(
         &mut Animator<Transform>,
         Entity,
     )>,
-    faces: Query<&Face>,
+    mut faces: Query<&mut Face>,
     mut pillars: Query<&mut Pillar>,
     mut pylons: Query<
         (&mut Pylon, &mut Transform, &mut Handle<StandardMaterial>),
@@ -117,20 +117,17 @@ pub fn update_climbers(
     for (mut transform, mut climber, mut animator, climber_entity) in climbers.iter_mut() {
         match &climber.state {
             ClimberState::Waiting { on_tile: tile } => {
-                let face = faces
-                    .get(tile.face)
+                let mut face = faces
+                    .get_mut(tile.face)
                     .expect("Climber does not appear to have a Face reference");
                 // If climber doesn't have a rod beneath him anymore : falling
                 if !face.has_ground_on_tile(tile.i, tile.j) {
-                    info!("Climber started falling from {} {}", tile.i, tile.j);
                     climber.state = ClimberState::Falling { on_face: tile.face };
                 } else {
-                    if let Some(next_tile) = face.get_next_tile_with_ground(tile) {
+                    if let Some(next_tile) = face.get_next_free_tile_with_ground(tile) {
                         let next_pos = face.climber_get_pos_from_tile(&next_tile);
-                        info!(
-                            "Climber chose a next tile {} {} from {} {} and started moving",
-                            next_tile.i, next_tile.j, tile.i, tile.j
-                        );
+                        face.set_free(tile);
+                        face.set_occupied(&next_tile);
                         climber.state = climber_start_moving(
                             &transform.translation,
                             &next_pos,
@@ -144,11 +141,12 @@ pub fn update_climbers(
             ClimberState::Moving { to_tile: to } => {
                 if animator.tweenable().progress() >= 1. {
                     // TODO No tweening for pillars & climbers, animate according to fixed updates.
-                    let face = faces
-                        .get(to.face)
+                    let mut face = faces
+                        .get_mut(to.face)
                         .expect("Climber does not appear to have a Face reference");
 
                     if to.j >= face.size.h - 1 {
+                        face.set_free(to);
                         // TODO Move that code
                         let mut pillar = pillars.get_mut(climber.current_pillar).unwrap();
                         let pylon_entity = if let Some(same_face_pylon) =
@@ -197,8 +195,8 @@ pub fn update_climbers(
                 on_face: face_entity,
             } => {
                 // If a rod is reached : waiting
-                let face = faces
-                    .get(*face_entity)
+                let mut face = faces
+                    .get_mut(*face_entity)
                     .expect("Climber does not appear to have a Face reference");
 
                 let (i, j) = face.get_tile_coords_from_pos(transform.translation);
@@ -208,6 +206,7 @@ pub fn update_climbers(
                         i,
                         j,
                     };
+                    face.set_occupied(&landed_on);
                     transform.translation = face.climber_get_pos_from_tile(&landed_on);
                     climber.state = ClimberState::Waiting { on_tile: landed_on };
                 } else {
